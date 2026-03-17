@@ -1,3 +1,5 @@
+from datetime import date
+
 import pandas as pd
 from db_connection import get_connection
 
@@ -38,3 +40,10 @@ if __name__ == "__main__":
     new_players = new_players.fillna("Unknown")
 
     new_players.to_sql("players", conn, if_exists="append", index=False)
+
+    # matches
+    new_matches = df[["match_id", "tourney_id", "round", "winner_id", "loser_id", "score"]]
+    new_matches = new_matches.rename(columns={"tourney_id": "tournament_id"})
+    new_matches["match_date"] = date.today() # TODO
+
+    new_matches.to_sql("matches", conn, if_exists="append", index=False)
