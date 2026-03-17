@@ -1,7 +1,7 @@
-CREATE TABLE IF NOT EXISTS raw_matches (
+CREATE TABLE raw_matches (
     time_added  TEXT NOT NULL,
     source TEXT NOT NULL,
-    match_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id INTEGER PRIMARY KEY AUTOINCREMENT, -- sackmann dataset does not provide match ids, but each row is a new match
     tourney_id TEXT,
     tourney_name TEXT,
     surface TEXT,
