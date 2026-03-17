@@ -1,5 +1,6 @@
 .env
 .idea/
 .vscode
-schema.sql
 tennis.db
+web_scraper.py
+__pycache__/
