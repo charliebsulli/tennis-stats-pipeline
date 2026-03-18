@@ -2,6 +2,8 @@ from datetime import date
 
 import pandas as pd
 from db_connection import get_connection
+from sqlalchemy import create_engine
+
 
 if __name__ == "__main__":
     conn = get_connection()
@@ -11,6 +13,10 @@ if __name__ == "__main__":
                      SELECT * FROM raw_matches
                      WHERE match_id NOT IN (SELECT match_id FROM matches)
                      """, conn)
+    
+    # this handles some errors in sackmann data where the same player is on both sides of the match, 7 cases
+    # will also protect against this happening in future data
+    df = df[df["winner_id"] != df["loser_id"]]
 
     # tournaments
     dft = df.drop_duplicates("tourney_id")
@@ -20,8 +26,6 @@ if __name__ == "__main__":
     new_tournaments = new_tournaments.rename(columns={"tourney_id": "tournament_id", "tourney_name": "name", "tourney_level": "tournament_level"})
     new_tournaments = new_tournaments.fillna("Unknown")
     
-    new_tournaments.to_sql("tournaments", conn, if_exists="append", index=False)
-
     # players
     player_ids = {row[0] for row in curr.execute("SELECT player_id FROM players")}
 
@@ -39,11 +43,46 @@ if __name__ == "__main__":
     new_players["dob"] = "Unknown"
     new_players = new_players.fillna("Unknown")
 
-    new_players.to_sql("players", conn, if_exists="append", index=False)
-
     # matches
     new_matches = df[["match_id", "tourney_id", "round", "winner_id", "loser_id", "score"]]
     new_matches = new_matches.rename(columns={"tourney_id": "tournament_id"})
     new_matches["match_date"] = date.today() # TODO
 
-    new_matches.to_sql("matches", conn, if_exists="append", index=False)
+    # match_stats
+    winner_stats = df[["match_id", "winner_id", "loser_id", "w_ace", "w_df", "w_svpt", "w_1stIn", "w_1stWon", "w_2ndWon", "w_SvGms", "w_bpSaved", "w_bpFaced"]].copy()
+    winner_stats["won"] = True
+    winner_stats["return_points"] = df["l_svpt"]
+    winner_stats["first_serve_return_points"] = df["l_1stIn"]
+    winner_stats["first_serve_return_points_won"] = df["l_1stIn"] - df["l_1stWon"]
+    winner_stats["second_serve_return_points_won"] = df["l_svpt"] - df["l_1stIn"] - df["l_2ndWon"]
+    winner_stats["return_games"] = df["l_SvGms"]
+    winner_stats["break_points_converted"] = df["l_bpFaced"] - df["l_bpSaved"]
+    winner_stats["break_points_chances"] = df["l_bpFaced"]
+    winner_stats = winner_stats.rename(columns={"winner_id": "player_id", "loser_id": "opponent_id", "w_ace": "aces", "w_df": "double_faults", "w_svpt": "service_points", "w_1stIn": "first_serves_in", "w_1stWon": "first_serve_points_won", "w_2ndWon": "second_serve_points_won", "w_SvGms": "service_games", "w_bpSaved": "break_points_saved", "w_bpFaced": "break_points_faced"})
+
+    loser_stats = df[["match_id", "loser_id", "winner_id", "l_ace", "l_df", "l_svpt", "l_1stIn", "l_1stWon", "l_2ndWon", "l_SvGms", "l_bpSaved", "l_bpFaced"]].copy()
+    loser_stats["won"] = False
+    loser_stats["return_points"] = df["w_svpt"]
+    loser_stats["first_serve_return_points"] = df["w_1stIn"]
+    loser_stats["first_serve_return_points_won"] = df["w_1stIn"] - df["w_1stWon"]
+    loser_stats["second_serve_return_points_won"] = df["w_svpt"] - df["w_1stIn"] - df["w_2ndWon"]
+    loser_stats["return_games"] = df["w_SvGms"]
+    loser_stats["break_points_converted"] = df["w_bpFaced"] - df["w_bpSaved"]
+    loser_stats["break_points_chances"] = df["w_bpFaced"]
+    loser_stats = loser_stats.rename(columns={"loser_id": "player_id", "winner_id": "opponent_id", "l_ace": "aces", "l_df": "double_faults", "l_svpt": "service_points", "l_1stIn": "first_serves_in", "l_1stWon": "first_serve_points_won", "l_2ndWon": "second_serve_points_won", "l_SvGms": "service_games", "l_bpSaved": "break_points_saved", "l_bpFaced": "break_points_faced"})
+
+    match_stats = pd.concat([winner_stats, loser_stats], ignore_index=True)
+
+    conn.close()
+   
+    # want to make sure these all happen together or none happen
+    # why? consistency, imagine having tournaments with no matches, matches w/ no stats
+    # sqlalchemy allows rollback, to_sql will not rollback if used with sqlite3 connection
+    # https://pandas.pydata.org/pandas-docs/version/2.0/reference/api/pandas.DataFrame.to_sql.html
+    engine = create_engine("sqlite:///tennis.db")
+
+    with engine.begin() as conn:
+        new_tournaments.to_sql("tournaments", conn, if_exists="append", index=False)
+        new_players.to_sql("players", conn, if_exists="append", index=False)
+        new_matches.to_sql("matches", conn, if_exists="append", index=False)
+        match_stats.to_sql("match_stats", conn, if_exists="append", index=False)
