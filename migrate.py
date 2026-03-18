@@ -28,3 +28,9 @@ def run_migrations(conn):
             )
     
     conn.commit()
+
+
+if __name__ == "__main__":
+    conn = sqlite3.connect("tennis.db")
+    run_migrations(conn)
+    conn.close()
