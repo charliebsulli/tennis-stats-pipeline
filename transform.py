@@ -24,7 +24,7 @@ if __name__ == "__main__":
     new_tournaments = dft[~dft["tourney_id"].isin(tournament_ids)]
     new_tournaments = new_tournaments[["tourney_id", "tourney_name", "surface", "tourney_level"]]
     new_tournaments = new_tournaments.rename(columns={"tourney_id": "tournament_id", "tourney_name": "name", "tourney_level": "tournament_level"})
-    new_tournaments = new_tournaments.fillna("Unknown")
+    new_tournaments = new_tournaments.fillna("Unknown") # name, surface, level
     
     # players
     player_ids = {row[0] for row in curr.execute("SELECT player_id FROM players")}
@@ -40,13 +40,15 @@ if __name__ == "__main__":
     new_losers = new_losers.rename(columns={"loser_id": "player_id", "loser_name": "name", "loser_ioc": "nationality", "loser_hand": "hand"})
 
     new_players = pd.concat([new_winners, new_losers]).drop_duplicates("player_id")
-    new_players["dob"] = "Unknown"
-    new_players = new_players.fillna("Unknown")
+    new_players["dob"] = None
+    new_players["nationality"] = new_players["nationality"].fillna("Unknown")
+    new_players["hand"] = new_players["hand"].fillna("U") # sackmann data uses U for unknown hand
 
     # matches
     new_matches = df[["match_id", "tourney_id", "round", "winner_id", "loser_id", "score"]]
     new_matches = new_matches.rename(columns={"tourney_id": "tournament_id"})
-    new_matches["match_date"] = date.today() # TODO
+    new_matches["match_date"] = pd.to_datetime(df["tourney_date"], format="%Y%m%d").dt.date
+    new_matches["score"] = new_matches["score"].fillna("Unknown")
 
     # match_stats
     winner_stats = df[["match_id", "winner_id", "loser_id", "w_ace", "w_df", "w_svpt", "w_1stIn", "w_1stWon", "w_2ndWon", "w_SvGms", "w_bpSaved", "w_bpFaced"]].copy()
