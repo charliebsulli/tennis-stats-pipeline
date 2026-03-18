@@ -1,49 +1,22 @@
-import json
-import os
 import time
-from dotenv import load_dotenv
-import requests
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 import pandas as pd
+from api_calls import get_matches_by_category_and_date, get_match_stats_by_id
+from db_connection import get_connection
 
-load_dotenv()
 
-API_KEY = os.getenv("API_KEY")
-if API_KEY is None:
-    raise ValueError("API_KEY not found in environment variables")
-
-BASE_URL = "https://tennisapi1.p.rapidapi.com"
-
-def query_by_date(category, date: date):
+def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
     daily_matches = response.json()
     df = process_daily_matches_into_df(daily_matches)
-    # make the requests to each match id in the df, filling in the other stats data
     df = fill_match_stats(df)
-    # add the dataframe to the matches table
-    df.to_csv("test.csv", index=False)
-
-
-def get_matches_by_category_and_date(category, date: date):
-    category_id = category # TODO
-    day = date.day
-    month = date.month
-    year = date.year
-    url = BASE_URL + "/api/tennis/category/" + category_id + "/events/" + str(day) + "/" + str(month) + "/" + str(year)
-
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.get(url, headers=headers)
-    return response
+    return df
 
 
 def process_daily_matches_into_df(matches):
     # decode the json object into relevant match data and put it into a dataframe
     rows = []
+    # TODO use a list comprehension 
     for i, match in enumerate(matches["events"][:3]): # TODO 3 for now
         print(f"extracting match {i}")
         rows.append(extract_match(match))
@@ -74,18 +47,18 @@ def extract_match(match: dict):
         "winner_team": winnerTeam,
         # for now I treat each year of a tournament as separate (like Sackmann)
         # this is consistent with "seasons" from the API
-        "tourney_id": match["season"]["id"],
+        "rapidapi_tournament_id": match["season"]["id"],
         # an appropriate name comes from uniqueTournament
         "tourney_name": match["tournament"]["uniqueTournament"]["name"],
         "surface": match["tournament"]["uniqueTournament"]["groundType"],
         "match_date": match["startTimestamp"],
-        "winner_id": match[winnerTeam]["id"],
+        "rapidapi_winner_id": match[winnerTeam]["id"],
         # winner_seed TODO
         "winner_name": match[winnerTeam]["name"],
         "winner_ioc": match[winnerTeam]["country"]["alpha3"],
         # hand, height, age -- for existing players these are already filled
         # but will need to find them for new players
-        "loser_id": match[loserTeam]["id"],
+        "rapidapi_loser_id": match[loserTeam]["id"],
         "loser_name": match[loserTeam]["name"],
         "loser_ioc": match[loserTeam]["country"]["alpha3"],
         "score": compute_score(match[winnerScore], match[loserScore]),
@@ -176,19 +149,14 @@ def parse_match_stats(response_json, winner_team):
     }
 
 
-def get_match_stats_by_id(id):
-    url = BASE_URL + "/api/tennis/event/" + str(id) + "/statistics"
-
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.get(url, headers=headers)
-
-    return response
-
 if __name__ == "__main__":
     query_date = date.today() - timedelta(days=1)
-    query_by_date("3", query_date)
+    df = query_by_date("3", query_date)
+    
+    df.drop(columns=["winner_team"], inplace=True)
+    df['source'] = 'rapidapi'
+    df['time_added'] = datetime.now(timezone.utc).isoformat()
+    
+    conn = get_connection()
+    df.to_sql("raw_matches", conn, if_exists="append", index=False)
+    conn.close()
