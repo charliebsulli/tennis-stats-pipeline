@@ -50,5 +50,11 @@ CREATE TABLE raw_matches (
     winner_rank INTEGER,
     winner_rank_points INTEGER,
     loser_rank INTEGER,
-    loser_rank_points INTEGER
+    loser_rank_points INTEGER,
+    rapidapi_match_id INTEGER UNIQUE,
+    rapidapi_tournament_id INTEGER,
+    rapidapi_winner_id INTEGER,
+    rapidapi_loser_id INTEGER,
+    -- sackmann only has tournament date, match_date is a timestamp of match start time
+    match_date INTEGER
 );

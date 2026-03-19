@@ -15,21 +15,23 @@ def query_by_date(category, date: date) -> pd.DataFrame:
 
 def process_daily_matches_into_df(matches):
     # decode the json object into relevant match data and put it into a dataframe
-    rows = []
-    # TODO use a list comprehension 
-    for i, match in enumerate(matches["events"][:3]): # TODO 3 for now
-        print(f"extracting match {i}")
-        rows.append(extract_match(match))
-    df = pd.DataFrame(rows)
+    rows = [extract_match(match) for match in matches["events"]]
+    print(rows)
+    df = pd.DataFrame(rows).dropna(subset=["rapidapi_match_id"])
+    id_columns = ['rapidapi_match_id', 'rapidapi_tournament_id', 'rapidapi_winner_id', 'rapidapi_loser_id']
+    df[id_columns] = df[id_columns].astype('Int64')
     return df
 
 
 def extract_match(match: dict):
     # check that the match is complete, will need to look at the statuses to check this for sure
-    if match["status"]["code"] != 100:
-        return {}
+    if match.get("status", {}).get("code") != 100:
+        return {} # these will be dropped
 
-    winner_code = match["winnerCode"]
+    if len(match.get("homeTeam", {}).get("subTeams", [])) > 0:
+        return {} # doubles match
+
+    winner_code = match.get("winnerCode")
     if winner_code == 1:
         winnerTeam = "homeTeam"
         loserTeam = "awayTeam"
@@ -43,27 +45,27 @@ def extract_match(match: dict):
 
     return {
         # to look up detailed stats
-        "rapidapi_match_id": match["id"],
+        "rapidapi_match_id": match.get("id"),
         "winner_team": winnerTeam,
         # for now I treat each year of a tournament as separate (like Sackmann)
         # this is consistent with "seasons" from the API
-        "rapidapi_tournament_id": match["season"]["id"],
+        "rapidapi_tournament_id": match.get("season", {}).get("id"),
         # an appropriate name comes from uniqueTournament
-        "tourney_name": match["tournament"]["uniqueTournament"]["name"],
-        "surface": match["tournament"]["uniqueTournament"]["groundType"],
-        "match_date": match["startTimestamp"],
-        "rapidapi_winner_id": match[winnerTeam]["id"],
+        "tourney_name": match.get("tournament", {}).get("uniqueTournament", {}).get("name"),
+        "surface": match.get("tournament", {}).get("uniqueTournament", {}).get("groundType"),
+        "match_date": match.get("startTimestamp"),
+        "rapidapi_winner_id": match.get(winnerTeam, {}).get("id"),
         # winner_seed TODO
-        "winner_name": match[winnerTeam]["name"],
-        "winner_ioc": match[winnerTeam]["country"]["alpha3"],
+        "winner_name": match.get(winnerTeam, {}).get("name"),
+        "winner_ioc": match.get(winnerTeam, {}).get("country", {}).get("alpha3"),
         # hand, height, age -- for existing players these are already filled
         # but will need to find them for new players
-        "rapidapi_loser_id": match[loserTeam]["id"],
-        "loser_name": match[loserTeam]["name"],
-        "loser_ioc": match[loserTeam]["country"]["alpha3"],
-        "score": compute_score(match[winnerScore], match[loserScore]),
+        "rapidapi_loser_id": match.get(loserTeam, {}).get("id"),
+        "loser_name": match.get(loserTeam, {}).get("name"),
+        "loser_ioc": match.get(loserTeam, {}).get("country", {}).get("alpha3"),
+        "score": compute_score(match.get(winnerScore), match.get(loserScore)),
         # best_of?
-        "round": match["roundInfo"]["name"],
+        "round": match.get("roundInfo", {}).get("name"),
         # minutes
     }
 
@@ -97,10 +99,14 @@ def fill_match_stats(df):
     stats_rows = []
     for idx, row in df.iterrows():
         response = get_match_stats_by_id(row["rapidapi_match_id"])
-        stats = parse_match_stats(response.json(), row["winner_team"])
-        stats["rapidapi_match_id"] = row["rapidapi_match_id"]
-        stats_rows.append(stats)
-        time.sleep(0.5)
+        if response.status_code == 200:
+            stats = parse_match_stats(response.json(), row["winner_team"])
+            stats["rapidapi_match_id"] = row["rapidapi_match_id"]
+            stats_rows.append(stats)
+            time.sleep(0.2) # to avoid hitting rate limits
+        else:
+            print("Failed on this row:")
+            print(row)
     stats_df = pd.DataFrame(stats_rows)
     return pd.merge(df, stats_df, on="rapidapi_match_id", how="left")
 
@@ -148,15 +154,20 @@ def parse_match_stats(response_json, winner_team):
         "l_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(loser_total),
     }
 
+# https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
+def insert_or_ignore(table, conn, keys, data_iter):
+    conn.executemany(f"INSERT OR IGNORE INTO {table.name} ({', '.join(keys)}) "
+                    f"VALUES ({', '.join(['?' for key in keys])})", list(data_iter))
+
 
 if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=1)
-    df = query_by_date("3", query_date)
+    query_date = date.today() - timedelta(days=141)
+    df = query_by_date("72", query_date)
     
     df.drop(columns=["winner_team"], inplace=True)
     df['source'] = 'rapidapi'
     df['time_added'] = datetime.now(timezone.utc).isoformat()
     
     conn = get_connection()
-    df.to_sql("raw_matches", conn, if_exists="append", index=False)
+    df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
     conn.close()
