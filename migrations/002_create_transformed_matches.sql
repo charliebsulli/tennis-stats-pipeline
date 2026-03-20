@@ -1,5 +1,5 @@
 CREATE TABLE players (
-    player_id INTEGER PRIMARY KEY, -- the sackmann dataset already establishes as id so we use that for all players
+    player_id INTEGER PRIMARY KEY AUTOINCREMENT, -- the sackmann dataset already establishes as id so we use that for all players
     name TEXT NOT NULL,
     nationality TEXT,
     hand TEXT,

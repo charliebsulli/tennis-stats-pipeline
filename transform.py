@@ -4,8 +4,27 @@ import pandas as pd
 from db_connection import get_connection
 from sqlalchemy import create_engine
 
+from player_id_helper import get_player_id
 
-if __name__ == "__main__":
+# set winner and loser id
+def set_player_ids(row, conn):
+    row["winner_id"] = get_player_id(row["rapidapi_winner_id"], row["winner_name"], conn)
+    row["loser_id"] = get_player_id(row["rapidapi_loser_id"], row["loser_name"], conn)
+    return row
+
+
+# match api surface names to sackmann surface names
+# everything else passes through
+def map_surface_names(surface):
+    surface_mapping = {
+        "Hardcourt outdoor": "Hard",
+        "Hardcourt indoor": "Hard",
+        "Red clay": "Clay",
+    }
+    return surface_mapping.get(surface, surface)
+
+
+def transform_raw_matches(sackmann_only: bool):
     conn = get_connection()
     curr = conn.cursor()
 
@@ -13,7 +32,26 @@ if __name__ == "__main__":
                      SELECT * FROM raw_matches
                      WHERE match_id NOT IN (SELECT match_id FROM matches)
                      """, conn)
-    
+
+    if sackmann_only:
+        df = df[df["source"] == "sackmann"]
+    else:
+        # processing for rapidapi data only
+        
+        # copy rapidapi_tournament_id to tourney_id
+        mask = df["source"] == "rapidapi"
+        df.loc[mask, "tourney_id"] = df.loc[mask, "rapidapi_tournament_id"].map(str)
+        # set winner_id and loser_id to the translated player_ids
+        df.loc[mask, ["winner_id", "loser_id", "rapidapi_winner_id", "rapidapi_loser_id", "winner_name", "loser_name"]] = df.loc[mask, ["winner_id", "loser_id", "rapidapi_winner_id", "rapidapi_loser_id", "winner_name", "loser_name"]].apply(lambda row: set_player_ids(row, conn), axis=1)
+        # normalize surface names
+        df.loc[mask, "surface"] = df.loc[mask, "surface"].map(map_surface_names)
+        # translate match_date from timestamp to date
+        # so all dates are in the same format before processing
+        df.loc[mask, "tourney_date"] = pd.to_datetime(df.loc[mask, "match_date"], unit='s').dt.strftime("%Y%m%d")
+
+    # ===================================================================================
+    # processing for all data, both sackmann and rapidapi
+
     # this handles some errors in sackmann data where the same player is on both sides of the match, 7 cases
     # will also protect against this happening in future data
     df = df[df["winner_id"] != df["loser_id"]]
@@ -75,6 +113,8 @@ if __name__ == "__main__":
 
     match_stats = pd.concat([winner_stats, loser_stats], ignore_index=True)
 
+    # ===================================================================================
+    
     conn.close()
    
     # want to make sure these all happen together or none happen
@@ -88,3 +128,6 @@ if __name__ == "__main__":
         new_players.to_sql("players", conn, if_exists="append", index=False)
         new_matches.to_sql("matches", conn, if_exists="append", index=False)
         match_stats.to_sql("match_stats", conn, if_exists="append", index=False)
+
+if __name__ == "__main__":
+    transform_raw_matches(sackmann_only=False)

@@ -4,6 +4,8 @@ import pandas as pd
 from api_calls import get_matches_by_category_and_date, get_match_stats_by_id
 from db_connection import get_connection
 
+ATP_CATEGORY_ID = "3"
+CHALLENGER_CATEGORY_ID = "72"
 
 def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
@@ -16,7 +18,6 @@ def query_by_date(category, date: date) -> pd.DataFrame:
 def process_daily_matches_into_df(matches):
     # decode the json object into relevant match data and put it into a dataframe
     rows = [extract_match(match) for match in matches["events"]]
-    print(rows)
     df = pd.DataFrame(rows).dropna(subset=["rapidapi_match_id"])
     id_columns = ['rapidapi_match_id', 'rapidapi_tournament_id', 'rapidapi_winner_id', 'rapidapi_loser_id']
     df[id_columns] = df[id_columns].astype('Int64')
@@ -154,15 +155,15 @@ def parse_match_stats(response_json, winner_team):
         "l_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(loser_total),
     }
 
+
 # https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
 def insert_or_ignore(table, conn, keys, data_iter):
     conn.executemany(f"INSERT OR IGNORE INTO {table.name} ({', '.join(keys)}) "
                     f"VALUES ({', '.join(['?' for key in keys])})", list(data_iter))
 
 
-if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=141)
-    df = query_by_date("72", query_date)
+def ingest_by_date(category, date):
+    df = query_by_date(category, date)
     
     df.drop(columns=["winner_team"], inplace=True)
     df['source'] = 'rapidapi'
@@ -171,3 +172,11 @@ if __name__ == "__main__":
     conn = get_connection()
     df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
     conn.close()
+
+    print(f"Added {len(df)} matches for date {date} and category {category}")
+
+
+if __name__ == "__main__":
+    query_date = date.today() - timedelta(days=14)
+    ingest_by_date(ATP_CATEGORY_ID, query_date)
+    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)

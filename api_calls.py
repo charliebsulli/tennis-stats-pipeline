@@ -11,6 +11,12 @@ if API_KEY is None:
 
 BASE_URL = "https://tennisapi1.p.rapidapi.com"
 
+HEADERS = {
+    "x-rapidapi-key": API_KEY,
+    "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
+    "Content-Type": "application/json"
+}
+
 def get_matches_by_category_and_date(category, date: date):
     category_id = category # TODO
     day = date.day
@@ -18,25 +24,17 @@ def get_matches_by_category_and_date(category, date: date):
     year = date.year
     url = BASE_URL + "/api/tennis/category/" + category_id + "/events/" + str(day) + "/" + str(month) + "/" + str(year)
 
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
-
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers=HEADERS)
     return response
 
 
 def get_match_stats_by_id(id):
     url = BASE_URL + "/api/tennis/event/" + str(id) + "/statistics"
+    response = requests.get(url, headers=HEADERS)
+    return response
 
-    headers = {
-        "x-rapidapi-key": API_KEY,
-        "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
-        "Content-Type": "application/json"
-    }
 
-    response = requests.get(url, headers=headers)
-
+def get_rankings():
+    url = BASE_URL + "/api/tennis/rankings/atp"
+    response = requests.get(url, headers=HEADERS)
     return response
