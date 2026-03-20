@@ -32,12 +32,13 @@ def process_daily_matches_into_df(matches):
     if events == None:
         return pd.DataFrame()
     rows = [extract_match(match) for match in events]
-    if not rows:
+    df = pd.DataFrame(rows)
+    if df.empty:
         return pd.DataFrame()
     
     # require all of these columns for a match to be valid
     id_columns = ['rapidapi_match_id', 'rapidapi_tournament_id', 'rapidapi_winner_id', 'rapidapi_loser_id']
-    df = pd.DataFrame(rows).dropna(subset=id_columns)
+    df = df.dropna(subset=id_columns)
     df[id_columns] = df[id_columns].astype('Int64') # make sure ids are ints, not floats
     return df
 
@@ -192,10 +193,10 @@ def ingest_by_date(category, date):
     df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
     conn.close()
 
-    print(f"Added {len(df)} matches for date {date} and category {category}")
+    print(f"Added (or ignored) {len(df)} matches for date {date} and category {category}")
 
 
 if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=1)
-    ingest_by_date(ATP_CATEGORY_ID, query_date)
-    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)
+    query_date = date.today() - timedelta(days=91)
+    ingest_by_date(ATP_CATEGORY_ID, date(2024, 12, 27))
+    ingest_by_date(CHALLENGER_CATEGORY_ID, date(2024, 12, 27))

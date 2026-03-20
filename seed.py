@@ -29,10 +29,16 @@ def seed_from_csv(conn):
 
 
 if __name__ == "__main__":
+    print("Getting database connection...")
     conn = get_connection()
+    print("Running database migrations...")
     run_migrations(conn)
+    print("Seeding raw match data from CSV files...")
     seed_from_csv(conn)
-    transform_raw_matches(sackmann_only=True)
-    seed_player_id_lookup()
     conn.commit()
     conn.close()
+    print("Transforming raw match data...")
+    transform_raw_matches(sackmann_only=True)
+    print("Seeding player ID lookup table...")
+    seed_player_id_lookup()
+    print("Process complete.")
