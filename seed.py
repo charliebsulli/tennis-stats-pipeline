@@ -5,24 +5,21 @@ from pathlib import Path
 from dotenv import load_dotenv
 from db_connection import get_connection
 from migrate import run_migrations
+from player_id_helper import seed_player_id_lookup
+from transform import transform_raw_matches
 
-# load match data from the Sackmann dataset .csvs into the raw_matches table
-if __name__ == "__main__":
-    load_dotenv()
-    dataset_path_str = os.getenv("DATASET_PATH")
-    if dataset_path_str == None:
-        raise Exception("Dataset path not set")
-    dataset_path = Path(dataset_path_str)
-    
-    conn = get_connection()
+load_dotenv()
+dataset_path_str = os.getenv("DATASET_PATH")
+if dataset_path_str == None:
+    raise Exception("Dataset path not set")
+DATASET_PATH = Path(dataset_path_str)
+
+
+def seed_from_csv(conn):
     cur = conn.cursor()
-
-    run_migrations(conn)
-
-    # load matches
-    row = cur.execute("SELECT 1 FROM raw_matches LIMIT 1").fetchone()
+    row = cur.execute("SELECT 1 FROM raw_matches LIMIT 1").fetchone() # check db is empty
     if not row:
-        files = dataset_path.glob("atp_matches_[12q]*.csv") # include tour level, qualies, and challengers
+        files = DATASET_PATH.glob("atp_matches_[12q]*.csv") # include tour level, qualies, and challengers
         for csv_file in sorted(files):
             df = pd.read_csv(csv_file)
             df['source'] = 'sackmann'
@@ -30,4 +27,12 @@ if __name__ == "__main__":
             df.to_sql("raw_matches", conn, if_exists="append", index=False)
             print(f"Loaded {csv_file.name} - {len(df)} rows")
 
+
+if __name__ == "__main__":
+    conn = get_connection()
+    run_migrations(conn)
+    seed_from_csv(conn)
+    transform_raw_matches(sackmann_only=True)
+    seed_player_id_lookup()
+    conn.commit()
     conn.close()

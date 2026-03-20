@@ -24,7 +24,7 @@ def map_surface_names(surface):
     return surface_mapping.get(surface, surface)
 
 
-def transform_raw_matches(sackmann_only: bool):
+def transform_raw_matches(sackmann_only: bool = False):
     conn = get_connection()
     curr = conn.cursor()
 
@@ -130,4 +130,4 @@ def transform_raw_matches(sackmann_only: bool):
         match_stats.to_sql("match_stats", conn, if_exists="append", index=False)
 
 if __name__ == "__main__":
-    transform_raw_matches(sackmann_only=False)
+    transform_raw_matches()

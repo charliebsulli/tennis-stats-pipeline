@@ -1,3 +1,4 @@
+import json
 import unicodedata
 
 from api_calls import get_rankings
@@ -50,8 +51,23 @@ def generate_player_id(api_player_id, api_name, conn):
 
 
 def seed_player_id_lookup():
-    response = get_rankings().json()
-    name_id_pairs = [(p["team"]["name"], p["team"]["id"]) for p in response["rankings"]]
+    response = get_rankings()
+    if response == None:
+        print("Failed to fetch rankings. Skipping player_id lookup table seeding...")
+        return
+    
+    try:
+        response_json = response.json()
+    except json.JSONDecodeError as e:
+        print(f"Failed to decode JSON response: {e}")
+        print("Skipping player_id lookup table seeding...")
+        return
+    
+    try:
+        name_id_pairs = [(p["team"]["name"], p["team"]["id"]) for p in response_json["rankings"]]
+    except KeyError:
+        print("Failed to fetch rankings. Skipping player_id lookup table seeding...")
+        return
 
     conn = get_connection()
 
