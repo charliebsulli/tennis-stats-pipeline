@@ -17,24 +17,34 @@ HEADERS = {
     "Content-Type": "application/json"
 }
 
+# wrapper to check status
+def make_request(url):
+    try:
+        response = requests.get(url, headers=HEADERS)
+        response.raise_for_status()
+        return response
+    except requests.HTTPError as e:
+        print(f"Request failed: {e}")
+        return None
+
+
 def get_matches_by_category_and_date(category, date: date):
     category_id = category # TODO
     day = date.day
     month = date.month
     year = date.year
-    url = BASE_URL + "/api/tennis/category/" + category_id + "/events/" + str(day) + "/" + str(month) + "/" + str(year)
-
-    response = requests.get(url, headers=HEADERS)
-    return response
+    url = f"{BASE_URL}/api/tennis/category/{category_id}/events/{day}/{month}/{year}"
+    
+    return make_request(url)
 
 
 def get_match_stats_by_id(id):
-    url = BASE_URL + "/api/tennis/event/" + str(id) + "/statistics"
-    response = requests.get(url, headers=HEADERS)
-    return response
+    url = f"{BASE_URL}/api/tennis/event/{id}/statistics"
+    
+    return make_request(url)
 
 
 def get_rankings():
-    url = BASE_URL + "/api/tennis/rankings/atp"
-    response = requests.get(url, headers=HEADERS)
-    return response
+    url = f"{BASE_URL}/api/tennis/rankings/atp"
+    
+    return make_request(url)
