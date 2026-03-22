@@ -32,6 +32,9 @@ def transform_raw_matches(sackmann_only: bool = False):
                      SELECT * FROM raw_matches
                      WHERE match_id NOT IN (SELECT match_id FROM matches)
                      """, conn)
+    if df.empty:
+        print("No new matches found for transform.py")
+        return
 
     if sackmann_only:
         df = df[df["source"] == "sackmann"]
@@ -112,6 +115,8 @@ def transform_raw_matches(sackmann_only: bool = False):
     loser_stats = loser_stats.rename(columns={"loser_id": "player_id", "winner_id": "opponent_id", "l_ace": "aces", "l_df": "double_faults", "l_svpt": "service_points", "l_1stIn": "first_serves_in", "l_1stWon": "first_serve_points_won", "l_2ndWon": "second_serve_points_won", "l_SvGms": "service_games", "l_bpSaved": "break_points_saved", "l_bpFaced": "break_points_faced"})
 
     match_stats = pd.concat([winner_stats, loser_stats], ignore_index=True)
+    match_stats_columns = ["aces", "double_faults", "service_points", "first_serves_in", "first_serve_points_won", "second_serve_points_won", "service_games", "break_points_saved", "break_points_faced", "return_points", "first_serve_return_points", "first_serve_return_points_won", "second_serve_return_points_won", "return_games", "break_points_converted", "break_points_chances"]
+    match_stats["complete_stats"] = match_stats[match_stats_columns].notna().all(axis=1)
 
     # ===================================================================================
     
