@@ -3,6 +3,7 @@ CREATE TABLE match_stats (
     player_id INTEGER REFERENCES players(player_id),
     opponent_id INTEGER REFERENCES players(player_id),
     won BOOLEAN NOT NULL,
+    complete_stats BOOLEAN NOT NULL, -- whether ALL of the following fields are not NULL
 
     aces INTEGER,
     double_faults INTEGER,

@@ -1,9 +1,10 @@
-import sqlite3
-from pathlib import Path
+import os
 
-DB_PATH = Path("tennis.db")
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
+load_dotenv()
 
-def get_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(DB_PATH, autocommit=False)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+DB_CONNECTION_STR = os.getenv("DB_CONNECTION_STR")
+if DB_CONNECTION_STR is None:
+    raise ValueError("DB_CONNECTION_STR not found in environment variables")
+engine = create_engine(DB_CONNECTION_STR)
