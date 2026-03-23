@@ -92,6 +92,8 @@ def transform_raw_matches(sackmann_only: bool = False):
     new_matches = new_matches.rename(columns={"tourney_id": "tournament_id"})
     new_matches["match_date"] = pd.to_datetime(df["tourney_date"], format="%Y%m%d").dt.date
     new_matches["score"] = new_matches["score"].fillna("Unknown")
+    new_matches["round"] = new_matches["round"].fillna("Unknown")
+
 
     # match_stats
     winner_stats = df[["match_id", "winner_id", "loser_id", "w_ace", "w_df", "w_svpt", "w_1stin", "w_1stwon", "w_2ndwon", "w_svgms", "w_bpsaved", "w_bpfaced"]].copy()
