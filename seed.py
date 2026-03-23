@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 from sqlalchemy import Connection, text
 from db_connection import engine
 # from migrate import run_migrations
-# from player_id_helper import seed_player_id_lookup
+from player_id_helper import seed_player_id_lookup
 from transform import transform_raw_matches
 
 load_dotenv()
@@ -42,6 +42,6 @@ if __name__ == "__main__":
         seed_from_csv(conn)
     print("Transforming raw match data...")
     transform_raw_matches(sackmann_only=True)
-    # print("Seeding player ID lookup table...")
-    # seed_player_id_lookup()
-    # print("Process complete.")
+    print("Seeding player ID lookup table...")
+    seed_player_id_lookup()
+    print("Process complete.")

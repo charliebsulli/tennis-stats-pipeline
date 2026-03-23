@@ -32,7 +32,7 @@ def process_daily_matches_into_df(matches):
     events = matches.get("events")
     if events == None:
         return pd.DataFrame()
-    rows = [extract_match(match) for match in events[:5]] # TODO get ALL matches
+    rows = [extract_match(match) for match in events]
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame()
@@ -209,6 +209,6 @@ def ingest_by_date(category, date):
 # TODO cron job
 
 if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=2)
+    query_date = date.today() - timedelta(days=12)
     ingest_by_date(ATP_CATEGORY_ID, query_date)
     ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)
