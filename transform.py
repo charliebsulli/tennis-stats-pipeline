@@ -27,9 +27,11 @@ def map_surface_names(surface):
 def transform_raw_matches(sackmann_only: bool = False):
     with engine.connect() as conn:
         df = pd.read_sql(text("""
-                        SELECT * FROM raw_matches
-                        WHERE match_id NOT IN (SELECT match_id FROM matches)
-                        """), conn)
+            SELECT r.* FROM raw_matches r
+            WHERE NOT EXISTS (
+                SELECT 1 FROM matches m WHERE m.match_id = r.match_id
+            )
+        """), conn)
     if df.empty:
         print("No new matches found for transform.py")
         return
