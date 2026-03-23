@@ -1,6 +1,8 @@
 import sqlite3
 import os
 
+# TODO NOT UPDATED FOR POSTGRES
+
 MIGRATIONS_DIR = "migrations"
 
 def run_migrations(conn):

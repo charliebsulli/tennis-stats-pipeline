@@ -2,8 +2,9 @@ import time
 from datetime import date, datetime, timedelta, timezone
 import pandas as pd
 import requests
+from sqlalchemy import text
 from api_calls import get_matches_by_category_and_date, get_match_stats_by_id
-from db_connection import get_connection
+from db_connection import engine
 
 ATP_CATEGORY_ID = "3"
 CHALLENGER_CATEGORY_ID = "72"
@@ -31,7 +32,7 @@ def process_daily_matches_into_df(matches):
     events = matches.get("events")
     if events == None:
         return pd.DataFrame()
-    rows = [extract_match(match) for match in events]
+    rows = [extract_match(match) for match in events[:5]] # TODO get ALL matches
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame()
@@ -174,9 +175,16 @@ def parse_match_stats(response_json, winner_team):
 
 
 # https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
+# TODO is this ok?
+# its good to stop duplicate matches, but hides error info if something actually goes wrong
 def insert_or_ignore(table, conn, keys, data_iter):
-    conn.executemany(f"INSERT OR IGNORE INTO {table.name} ({', '.join(keys)}) "
-                    f"VALUES ({', '.join(['?' for key in keys])})", list(data_iter))
+    raw_conn = conn.connection
+    raw_conn.cursor().executemany(
+        f"INSERT INTO {table.name} ({', '.join(keys)}) "
+        f"VALUES ({', '.join(['%s' for _ in keys])}) "
+        f"ON CONFLICT DO NOTHING",
+        list(data_iter)
+    )
 
 
 def ingest_by_date(category, date):
@@ -188,15 +196,19 @@ def ingest_by_date(category, date):
     df.drop(columns=["winner_team"], inplace=True)
     df['source'] = 'rapidapi'
     df['time_added'] = datetime.now(timezone.utc).isoformat()
+    df['match_date'] = df['match_date'].map(lambda x: date.fromtimestamp(x))
+    df.columns = df.columns.str.lower()
     
-    conn = get_connection()
-    df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
-    conn.close()
+    with engine.connect() as conn:
+        df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
 
     print(f"Added (or ignored) {len(df)} matches for date {date} and category {category}")
 
+# TODO backfill script
+
+# TODO cron job
 
 if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=91)
-    ingest_by_date(ATP_CATEGORY_ID, date(2024, 12, 27))
-    ingest_by_date(CHALLENGER_CATEGORY_ID, date(2024, 12, 27))
+    query_date = date.today() - timedelta(days=2)
+    ingest_by_date(ATP_CATEGORY_ID, query_date)
+    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)
