@@ -2,7 +2,7 @@ from sqlalchemy import text
 
 from db_connection import engine
 
-if __name__ == "__main__":
+def compute_player_surface_stats():
     with engine.connect() as conn:
         # get the players who need their surface stats updated
         # either 1. matches have been added for this player since their surface stats were last updated
@@ -33,3 +33,6 @@ if __name__ == "__main__":
 
             conn.execute(query, {"player_ids": players})
             conn.commit()
+
+if __name__ == "__main__":
+    compute_player_surface_stats()

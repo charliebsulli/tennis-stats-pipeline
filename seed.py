@@ -8,6 +8,7 @@ from db_connection import engine
 # from migrate import run_migrations
 from player_id_helper import seed_player_id_lookup
 from transform import transform_raw_matches
+from aggregate import compute_player_surface_stats
 
 load_dotenv()
 dataset_path_str = os.getenv("DATASET_PATH")
@@ -44,4 +45,6 @@ if __name__ == "__main__":
     transform_raw_matches(sackmann_only=True)
     print("Seeding player ID lookup table...")
     seed_player_id_lookup()
+    print("Computing advanced statistics...")
+    compute_player_surface_stats()
     print("Process complete.")

@@ -1,0 +1,33 @@
+import argparse
+from datetime import date, datetime, timedelta
+
+from aggregate import compute_player_surface_stats
+from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
+from transform import transform_raw_matches
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "date",
+        type=str,
+        help="The date for which to query data (YYYY-MM-DD).",
+    )
+    args = parser.parse_args()
+
+    if args.date:
+        try:
+            query_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+        except ValueError:
+            print(f"Error: Invalid date format for --date. Please use YYYY-MM-DD.")
+            exit(1)
+
+    print(f"Processing data for date: {query_date}")
+
+    # ingest new data from API
+    ingest_by_date(ATP_CATEGORY_ID, query_date)
+    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)
+
+    transform_raw_matches()
+
+    compute_player_surface_stats()
