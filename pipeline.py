@@ -1,7 +1,7 @@
 import argparse
 from datetime import date, datetime, timedelta
 
-from aggregate import compute_player_surface_stats
+from aggregate import compute_head_to_head, compute_player_surface_stats
 from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
 from transform import transform_raw_matches
 
@@ -36,3 +36,4 @@ if __name__ == "__main__":
     transform_raw_matches()
 
     compute_player_surface_stats()
+    compute_head_to_head()
