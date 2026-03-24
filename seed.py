@@ -10,6 +10,9 @@ from player_id_helper import seed_player_id_lookup
 from transform import transform_raw_matches
 from aggregate import compute_player_surface_stats
 
+from logging_config import setup_logging
+setup_logging()
+
 load_dotenv()
 dataset_path_str = os.getenv("DATASET_PATH")
 if dataset_path_str == None:

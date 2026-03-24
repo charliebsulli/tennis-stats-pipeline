@@ -5,6 +5,9 @@ from aggregate import compute_player_surface_stats
 from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
 from transform import transform_raw_matches
 
+from logging_config import setup_logging
+setup_logging()
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
