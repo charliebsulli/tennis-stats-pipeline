@@ -1,16 +1,19 @@
+import logging
 import time
 from datetime import date, datetime, timedelta, timezone
+
 import pandas as pd
 import requests
 from sqlalchemy import text
-from api_calls import get_matches_by_category_and_date, get_match_stats_by_id
+
+from api_calls import get_match_stats_by_id, get_matches_by_category_and_date
 from db_connection import engine
-import logging
 
 logger = logging.getLogger(__name__)
 
 ATP_CATEGORY_ID = "3"
 CHALLENGER_CATEGORY_ID = "72"
+
 
 def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
@@ -40,20 +43,27 @@ def process_daily_matches_into_df(matches):
     df = pd.DataFrame(rows)
     if df.empty:
         return pd.DataFrame()
-    
+
     # require all of these columns for a match to be valid
-    id_columns = ['rapidapi_match_id', 'rapidapi_tournament_id', 'rapidapi_winner_id', 'rapidapi_loser_id']
+    id_columns = [
+        "rapidapi_match_id",
+        "rapidapi_tournament_id",
+        "rapidapi_winner_id",
+        "rapidapi_loser_id",
+    ]
     df = df.dropna(subset=id_columns)
-    df[id_columns] = df[id_columns].astype('Int64') # make sure ids are ints, not floats
+    df[id_columns] = df[id_columns].astype(
+        "Int64"
+    )  # make sure ids are ints, not floats
     return df
 
 
 def extract_match(match: dict):
-    if match.get("status", {}).get("code") != 100: # TODO find possible status codes
-        return {} # these will be dropped
+    if match.get("status", {}).get("code") != 100:  # TODO find possible status codes
+        return {}  # these will be dropped
 
     if len(match.get("homeTeam", {}).get("subTeams", [])) > 0:
-        return {} # doubles match
+        return {}  # doubles match
 
     winner_code = match.get("winnerCode")
     if winner_code == 1:
@@ -73,9 +83,15 @@ def extract_match(match: dict):
     return {
         "rapidapi_match_id": match.get("id"),
         "winner_team": winner_team,
-        "rapidapi_tournament_id": match.get("season", {}).get("id"), # a season is one edition of a tournament
-        "tourney_name": match.get("tournament", {}).get("uniqueTournament", {}).get("name"), # an appropriate name comes from uniqueTournament
-        "surface": match.get("tournament", {}).get("uniqueTournament", {}).get("groundType"),
+        "rapidapi_tournament_id": match.get("season", {}).get(
+            "id"
+        ),  # a season is one edition of a tournament
+        "tourney_name": match.get("tournament", {})
+        .get("uniqueTournament", {})
+        .get("name"),  # an appropriate name comes from uniqueTournament
+        "surface": match.get("tournament", {})
+        .get("uniqueTournament", {})
+        .get("groundType"),
         "match_date": match.get("startTimestamp"),
         "rapidapi_winner_id": match.get(winner_team, {}).get("id"),
         "winner_name": match.get(winner_team, {}).get("name"),
@@ -86,6 +102,7 @@ def extract_match(match: dict):
         "score": compute_score(match.get(winner_score), match.get(loser_score)),
         "round": match.get("roundInfo", {}).get("name"),
     }
+
 
 # TODO: add tiebreak scores
 def compute_score(winner_score, loser_score) -> str:
@@ -107,7 +124,9 @@ def fill_match_stats(df):
     for idx, row in df.iterrows():
         response = get_match_stats_by_id(row["rapidapi_match_id"])
         if response is None:
-            logger.warning(f"Match stats not found for match {row["rapidapi_match_id"]}")
+            logger.warning(
+                f"Match stats not found for match {row['rapidapi_match_id']}"
+            )
         else:
             try:
                 response_json = response.json()
@@ -115,9 +134,11 @@ def fill_match_stats(df):
                 stats["rapidapi_match_id"] = row["rapidapi_match_id"]
                 stats_rows.append(stats)
             except requests.exceptions.JSONDecodeError as e:
-                logger.exception(f"Failed to decode JSON response: {e} for match {row['rapidapi_match_id']}")
+                logger.exception(
+                    f"Failed to decode JSON response: {e} for match {row['rapidapi_match_id']}"
+                )
         logger.info(f"Filled detailed stats for match {row['rapidapi_match_id']}")
-        time.sleep(0.2) # to avoid hitting rate limits
+        time.sleep(0.2)  # to avoid hitting rate limits
     stats_df = pd.DataFrame(stats_rows)
     return pd.merge(df, stats_df, on="rapidapi_match_id", how="left")
 
@@ -125,9 +146,9 @@ def fill_match_stats(df):
 def parse_match_stats(response_json, winner_team):
     stats = response_json.get("statistics")
     if stats == None:
-        logger.info("Match stats not found")       
+        logger.info("Match stats not found")
         return {}
-    
+
     try:
         res_stats = next(p for p in response_json["statistics"] if p["period"] == "ALL")
     except StopIteration:
@@ -159,20 +180,31 @@ def parse_match_stats(response_json, winner_team):
     return {
         "w_ace": res_stats_dict.get("aces", {}).get(winner_value),
         "w_df": res_stats_dict.get("doubleFaults", {}).get(winner_value),
-        "w_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(winner_total) + res_stats_dict.get("secondServePointsAccuracy", {}).get(winner_total), # TODO possible error
+        "w_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(winner_total)
+        + res_stats_dict.get("secondServePointsAccuracy", {}).get(
+            winner_total
+        ),  # TODO possible error
         "w_1stIn": res_stats_dict.get("firstServeAccuracy", {}).get(winner_value),
-        "w_1stWon": res_stats_dict.get("firstServePointsAccuracy", {}).get(winner_value),
-        "w_2ndWon": res_stats_dict.get("secondServePointsAccuracy", {}).get(winner_value),
+        "w_1stWon": res_stats_dict.get("firstServePointsAccuracy", {}).get(
+            winner_value
+        ),
+        "w_2ndWon": res_stats_dict.get("secondServePointsAccuracy", {}).get(
+            winner_value
+        ),
         "w_SvGms": res_stats_dict.get("serviceGamesTotal", {}).get(winner_value),
         "w_bpSaved": res_stats_dict.get("breakPointsSaved", {}).get(winner_value),
         "w_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(winner_total),
-
         "l_ace": res_stats_dict.get("aces", {}).get(loser_value),
         "l_df": res_stats_dict.get("doubleFaults", {}).get(loser_value),
-        "l_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(loser_total) + res_stats_dict.get("secondServePointsAccuracy", {}).get(loser_total), # TODO possible error
+        "l_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(loser_total)
+        + res_stats_dict.get("secondServePointsAccuracy", {}).get(
+            loser_total
+        ),  # TODO possible error
         "l_1stIn": res_stats_dict.get("firstServeAccuracy", {}).get(loser_value),
         "l_1stWon": res_stats_dict.get("firstServePointsAccuracy", {}).get(loser_value),
-        "l_2ndWon": res_stats_dict.get("secondServePointsAccuracy", {}).get(loser_value),
+        "l_2ndWon": res_stats_dict.get("secondServePointsAccuracy", {}).get(
+            loser_value
+        ),
         "l_SvGms": res_stats_dict.get("serviceGamesTotal", {}).get(loser_value),
         "l_bpSaved": res_stats_dict.get("breakPointsSaved", {}).get(loser_value),
         "l_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(loser_total),
@@ -188,7 +220,7 @@ def insert_or_ignore(table, conn, keys, data_iter):
         f"INSERT INTO {table.name} ({', '.join(keys)}) "
         f"VALUES ({', '.join(['%s' for _ in keys])}) "
         f"ON CONFLICT DO NOTHING",
-        list(data_iter)
+        list(data_iter),
     )
 
 
@@ -197,18 +229,27 @@ def ingest_by_date(category, date):
     if df.empty:
         logger.info(f"No data found for date {date}")
         return
-    
+
     df.drop(columns=["winner_team"], inplace=True)
-    df['source'] = 'rapidapi'
-    df['time_added'] = datetime.now(timezone.utc).isoformat()
-    df['match_date'] = df['match_date'].map(lambda x: date.fromtimestamp(x))
+    df["source"] = "rapidapi"
+    df["time_added"] = datetime.now(timezone.utc).isoformat()
+    df["match_date"] = df["match_date"].map(lambda x: date.fromtimestamp(x))
     df.columns = df.columns.str.lower()
-    
+
     with engine.connect() as conn:
-        df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
+        df.to_sql(
+            "raw_matches",
+            conn,
+            if_exists="append",
+            index=False,
+            method=insert_or_ignore,
+        )
 
     # TODO actually say how many were added?
-    logger.info(f"Added (or ignored) {len(df)} matches for date {date} and category {category}")
+    logger.info(
+        f"Added (or ignored) {len(df)} matches for date {date} and category {category}"
+    )
+
 
 # TODO backfill script
 

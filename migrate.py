@@ -1,13 +1,14 @@
-import sqlite3
 import os
+import sqlite3
 
 # TODO NOT UPDATED FOR POSTGRES
 
 MIGRATIONS_DIR = "migrations"
 
+
 def run_migrations(conn):
     cursor = conn.cursor()
-    
+
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS migrations (
             filename    TEXT PRIMARY KEY,
@@ -16,19 +17,18 @@ def run_migrations(conn):
     """)
 
     applied = {row[0] for row in cursor.execute("SELECT filename FROM migrations")}
-    
+
     files = sorted(f for f in os.listdir(MIGRATIONS_DIR) if f.endswith(".sql"))
-    
+
     for filename in files:
         if filename not in applied:
             print(f"Applying {filename}...")
             with open(f"{MIGRATIONS_DIR}/{filename}") as f:
                 cursor.executescript(f.read())
             cursor.execute(
-                "INSERT INTO migrations VALUES (?, datetime('now'))",
-                (filename,)
+                "INSERT INTO migrations VALUES (?, datetime('now'))", (filename,)
             )
-    
+
     conn.commit()
 
 
