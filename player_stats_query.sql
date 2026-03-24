@@ -1,4 +1,4 @@
-INSERT INTO player_surface_stats (
+INSERT INTO player_surface_stats ( -- TODO I think its pointless to join players here, ms has player id
   last_updated,
   player_id,
   surface,
@@ -87,7 +87,7 @@ WITH stats AS (
   FROM match_stats AS ms
   JOIN players AS p ON ms.player_id = p.player_id
   JOIN matches AS m ON ms.match_id = m.match_id
-  WHERE ms.complete_stats = true
+  WHERE ms.complete_stats = true AND p.player_id = ANY(:player_ids)
   GROUP BY GROUPING SETS (
     (p.player_id, EXTRACT(YEAR FROM m.match_date)),
     (p.player_id)
