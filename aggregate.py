@@ -1,6 +1,9 @@
 from sqlalchemy import text
 
 from db_connection import engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 def compute_player_surface_stats():
     with engine.connect() as conn:
@@ -25,7 +28,7 @@ def compute_player_surface_stats():
         players = [row[0] for row in players]
         # also need players who do NOT appear in the surface stats table\
         if len(players) == 0:
-            print("No players need surface stats updated.")
+            logger.info("No players need surface stats updated.")
         else:
             # update their surface stats
             with open("player_stats_query.sql") as f:
@@ -33,6 +36,7 @@ def compute_player_surface_stats():
 
             conn.execute(query, {"player_ids": players})
             conn.commit()
+            logger.info(f"Updated surface stats for {len(players)} players")
 
 if __name__ == "__main__":
     compute_player_surface_stats()

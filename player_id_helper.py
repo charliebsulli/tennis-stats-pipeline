@@ -4,6 +4,9 @@ from sqlalchemy import text
 from api_calls import get_rankings
 from db_connection import engine
 from rapidfuzz import process, fuzz
+import logging
+
+logger = logging.getLogger(__name__)
 
 def normalize_name(name: str) -> str:
     if not name:
@@ -67,18 +70,18 @@ def generate_player_id(api_player_id, api_name, conn):
 def seed_player_id_lookup():
     response = get_rankings()
     if response is None:
-        print("Failed to fetch rankings. Skipping player_id lookup table seeding...")
+        logger.warning("Failed to fetch rankings. Skipping player_id lookup table seeding...")
         return
     try:
         response_json = response.json()
     except json.JSONDecodeError as e:
-        print(f"Failed to decode JSON response: {e}")
-        print("Skipping player_id lookup table seeding...")
+        logger.exception(f"Failed to decode JSON response")
+        logger.warning("Skipping player_id lookup table seeding...")
         return
     try:
         name_id_pairs = [(p["team"]["name"], p["team"]["id"]) for p in response_json["rankings"]]
     except KeyError:
-        print("Failed to fetch rankings. Skipping player_id lookup table seeding...")
+        logger.exception("Unexpected format of JSON. Skipping player_id lookup table seeding...")
         return
 
     with engine.begin() as conn:

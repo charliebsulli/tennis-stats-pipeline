@@ -5,6 +5,9 @@ import requests
 from sqlalchemy import text
 from api_calls import get_matches_by_category_and_date, get_match_stats_by_id
 from db_connection import engine
+import logging
+
+logger = logging.getLogger(__name__)
 
 ATP_CATEGORY_ID = "3"
 CHALLENGER_CATEGORY_ID = "72"
@@ -12,16 +15,16 @@ CHALLENGER_CATEGORY_ID = "72"
 def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
     if response == None:
-        print(f"Failed to get matches for category {category} on date {date}")
+        logger.warning(f"Failed to get matches for category {category} on date {date}")
         return pd.DataFrame()
     try:
         daily_matches = response.json()
     except requests.exceptions.JSONDecodeError as e:
-        print(f"Failed to decode JSON response: {e}")
+        logger.exception(f"Failed to decode JSON response: {e}")
         return pd.DataFrame()
     df = process_daily_matches_into_df(daily_matches)
     if df.empty:
-        print(f"Matches not found for category {category} on date {date}")
+        logger.info(f"Matches not found for category {category} on date {date}")
         return pd.DataFrame()
     df = fill_match_stats(df)
     return df
@@ -32,6 +35,7 @@ def process_daily_matches_into_df(matches):
     events = matches.get("events")
     if events == None:
         return pd.DataFrame()
+    logger.info(f"Extracting match data for {len(events)} matches")
     rows = [extract_match(match) for match in events]
     df = pd.DataFrame(rows)
     if df.empty:
@@ -103,7 +107,7 @@ def fill_match_stats(df):
     for idx, row in df.iterrows():
         response = get_match_stats_by_id(row["rapidapi_match_id"])
         if response is None:
-            print(f"Match stats not found for match {row["rapidapi_match_id"]}")
+            logger.warning(f"Match stats not found for match {row["rapidapi_match_id"]}")
         else:
             try:
                 response_json = response.json()
@@ -111,7 +115,8 @@ def fill_match_stats(df):
                 stats["rapidapi_match_id"] = row["rapidapi_match_id"]
                 stats_rows.append(stats)
             except requests.exceptions.JSONDecodeError as e:
-                print(f"Failed to decode JSON response: {e} for match {row['rapidapi_match_id']}")
+                logger.exception(f"Failed to decode JSON response: {e} for match {row['rapidapi_match_id']}")
+        logger.info(f"Filled detailed stats for match {row['rapidapi_match_id']}")
         time.sleep(0.2) # to avoid hitting rate limits
     stats_df = pd.DataFrame(stats_rows)
     return pd.merge(df, stats_df, on="rapidapi_match_id", how="left")
@@ -120,13 +125,13 @@ def fill_match_stats(df):
 def parse_match_stats(response_json, winner_team):
     stats = response_json.get("statistics")
     if stats == None:
-        print("Match stats not found")       
+        logger.info("Match stats not found")       
         return {}
     
     try:
         res_stats = next(p for p in response_json["statistics"] if p["period"] == "ALL")
     except StopIteration:
-        print(f"Period ALL not found in stats")
+        logger.exception(f"Period ALL not found in stats")
         return {}
 
     # index all the stat objects in a statistics_list by key to make the stats easy to access
@@ -136,7 +141,7 @@ def parse_match_stats(response_json, winner_team):
             for stat_item in group["statisticsItems"]:
                 res_stats_dict[stat_item["key"]] = stat_item
     except KeyError as e:
-        print(f"Unexpected match stats dict structure: {e}")
+        logger.exception(f"Unexpected match stats dict structure: {e}")
         return {}
 
     # API uses home/away instead of winner/loser
@@ -190,7 +195,7 @@ def insert_or_ignore(table, conn, keys, data_iter):
 def ingest_by_date(category, date):
     df = query_by_date(category, date)
     if df.empty:
-        print(f"No data found for date {date}")
+        logger.info(f"No data found for date {date}")
         return
     
     df.drop(columns=["winner_team"], inplace=True)
@@ -202,7 +207,8 @@ def ingest_by_date(category, date):
     with engine.connect() as conn:
         df.to_sql("raw_matches", conn, if_exists="append", index=False, method=insert_or_ignore)
 
-    print(f"Added (or ignored) {len(df)} matches for date {date} and category {category}")
+    # TODO actually say how many were added?
+    logger.info(f"Added (or ignored) {len(df)} matches for date {date} and category {category}")
 
 # TODO backfill script
 

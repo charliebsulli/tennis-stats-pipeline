@@ -2,6 +2,9 @@ import requests
 from datetime import date
 from dotenv import load_dotenv
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -24,7 +27,7 @@ def make_request(url):
         response.raise_for_status()
         return response
     except requests.HTTPError as e:
-        print(f"Request failed: {e}")
+        logger.exception(f"Request failed")
         return None
 
 

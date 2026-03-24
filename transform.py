@@ -6,6 +6,9 @@ from sqlalchemy import create_engine, text
 
 from player_id_helper import get_player_id
 
+import logging
+logger = logging.getLogger(__name__)
+
 # set winner and loser id
 def set_player_ids(row, conn):
     row["winner_id"] = get_player_id(row["rapidapi_winner_id"], row["winner_name"], conn)
@@ -32,8 +35,9 @@ def transform_raw_matches(sackmann_only: bool = False):
                 SELECT 1 FROM matches m WHERE m.match_id = r.match_id
             )
         """), conn)
+        logger.info("Loaded raw_matches from database")
     if df.empty:
-        print("No new matches found for transform.py")
+        logger.info("No new matches found for transform.py")
         return
 
     if sackmann_only:
@@ -122,13 +126,15 @@ def transform_raw_matches(sackmann_only: bool = False):
     match_stats_columns = ["aces", "double_faults", "service_points", "first_serves_in", "first_serve_points_won", "second_serve_points_won", "service_games", "break_points_saved", "break_points_faced", "return_points", "first_serve_return_points", "first_serve_return_points_won", "second_serve_return_points_won", "return_games", "break_points_converted", "break_points_chances"]
     match_stats["complete_stats"] = match_stats[match_stats_columns].notna().all(axis=1)
 
+    logger.info("Finished processing raw matches")
     # ===================================================================================
-
     with engine.begin() as conn:
+        logger.info("Loading match data into database...")
         new_tournaments.to_sql("tournaments", conn, if_exists="append", index=False)
         new_players.to_sql("players", conn, if_exists="append", index=False)
         new_matches.to_sql("matches", conn, if_exists="append", index=False)
         match_stats.to_sql("match_stats", conn, if_exists="append", index=False)
+    logger.info("Loaded match data into database")
 
 if __name__ == "__main__":
     transform_raw_matches()

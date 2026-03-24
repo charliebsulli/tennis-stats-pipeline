@@ -6,8 +6,10 @@ from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
 from transform import transform_raw_matches
 
 from logging_config import setup_logging
+import logging
 setup_logging()
 
+logger = logging.getLogger(__name__)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -22,10 +24,10 @@ if __name__ == "__main__":
         try:
             query_date = datetime.strptime(args.date, "%Y-%m-%d").date()
         except ValueError:
-            print(f"Error: Invalid date format for --date. Please use YYYY-MM-DD.")
+            logger.exception(f"Error: Invalid date format for --date. Please use YYYY-MM-DD.")
             exit(1)
 
-    print(f"Processing data for date: {query_date}")
+    logger.info(f"Processing data for date: {query_date}")
 
     # ingest new data from API
     ingest_by_date(ATP_CATEGORY_ID, query_date)

@@ -6,3 +6,4 @@ web_scraper.py
 __pycache__/
 .continue/
 .venv/
+*.log

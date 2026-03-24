@@ -8,4 +8,5 @@ def setup_logging():
         encoding="utf-8"
     )
 
-# TODO: don't save all logging content forever
+# TODO: RotatingFileHandler
+# TODO: print to console and save to file using handlers?
