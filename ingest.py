@@ -177,13 +177,22 @@ def parse_match_stats(response_json, winner_team):
         winner_total = "awayTotal"
         loser_total = "homeTotal"
 
+    try:
+        w_svpt = res_stats_dict.get("firstServePointsAccuracy", {}).get(
+            winner_total
+        ) + res_stats_dict.get("secondServePointsAccuracy", {}).get(winner_total)
+        l_svpt = res_stats_dict.get("firstServePointsAccuracy", {}).get(
+            loser_total
+        ) + res_stats_dict.get("secondServePointsAccuracy", {}).get(loser_total)
+    except TypeError:
+        logger.exception("Setting w_svpt, l_svpt to None: missing necessary value")
+        w_svpt = None
+        l_svpt = None
+
     return {
         "w_ace": res_stats_dict.get("aces", {}).get(winner_value),
         "w_df": res_stats_dict.get("doubleFaults", {}).get(winner_value),
-        "w_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(winner_total)
-        + res_stats_dict.get("secondServePointsAccuracy", {}).get(
-            winner_total
-        ),  # TODO possible error
+        "w_svpt": w_svpt,
         "w_1stIn": res_stats_dict.get("firstServeAccuracy", {}).get(winner_value),
         "w_1stWon": res_stats_dict.get("firstServePointsAccuracy", {}).get(
             winner_value
@@ -196,10 +205,7 @@ def parse_match_stats(response_json, winner_team):
         "w_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(winner_total),
         "l_ace": res_stats_dict.get("aces", {}).get(loser_value),
         "l_df": res_stats_dict.get("doubleFaults", {}).get(loser_value),
-        "l_svpt": res_stats_dict.get("firstServePointsAccuracy", {}).get(loser_total)
-        + res_stats_dict.get("secondServePointsAccuracy", {}).get(
-            loser_total
-        ),  # TODO possible error
+        "l_svpt": l_svpt,
         "l_1stIn": res_stats_dict.get("firstServeAccuracy", {}).get(loser_value),
         "l_1stWon": res_stats_dict.get("firstServePointsAccuracy", {}).get(loser_value),
         "l_2ndWon": res_stats_dict.get("secondServePointsAccuracy", {}).get(

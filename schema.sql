@@ -170,7 +170,7 @@ CREATE TABLE player_surface_stats (
     break_points_chances INTEGER,
 
     primary key (player_id, surface, season)
-)
+);
 
 CREATE TABLE head_to_head (
     player_id       INTEGER REFERENCES players(player_id),

@@ -7,7 +7,10 @@ from sqlalchemy import text
 from aggregate import compute_head_to_head, compute_player_surface_stats
 from db_connection import engine
 from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
+from logging_config import setup_logging
 from transform import transform_raw_matches
+
+setup_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -60,3 +63,4 @@ def backfill_data(start_date, end_date):
 if __name__ == "__main__":
     backfill_data(date(2024, 12, 26), date(2026, 3, 24))
     # TODO if I want to run this in deployment I should make this command line args
+    # TODO backfill will hit api rate limit
