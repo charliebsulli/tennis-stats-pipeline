@@ -11,6 +11,7 @@ FROM (
         ) AS rn
     FROM match_stats AS ms
     JOIN matches AS m ON ms.match_id = m.match_id
+    WHERE match_date >= NOW() - INTERVAL '90 days'
 )
 WHERE rn <= 20
 
@@ -30,6 +31,7 @@ FROM (
     FROM match_stats AS ms
     JOIN matches AS m ON ms.match_id = m.match_id
     JOIN tournaments AS t ON m.tournament_id = t.tournament_id
+    WHERE match_date >= NOW() - INTERVAL '90 days'
 )
 WHERE rn <= 20
 AND surface IN ('Clay', 'Hard', 'Grass')

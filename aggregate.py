@@ -102,10 +102,15 @@ def compute_form():
                 }
             )
         result = pd.DataFrame(output)
-        print(result.sort_values(by="weighted_form", ascending=False).head(15))
+        print(result.sort_values(by="weighted_form", ascending=False))
 
 
 def find_weighted_form(df: pd.DataFrame, alpha: float):
+    if len(df) < 5:
+        logger.info(
+            f"Skipping player form for player with {len(df)} matches in last 90 days"
+        )
+        return -1
     score, total = 0, 0
     now = date.today()
     for index, row in df.iterrows():
@@ -116,7 +121,7 @@ def find_weighted_form(df: pd.DataFrame, alpha: float):
             score += weight
     if total == 0:
         logger.warning("Total score for form computation is 0")
-        return 0.0
+        return -1
     return score / total
 
 
