@@ -1,14 +1,16 @@
 import logging
+import sys
 
 
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-        filename="pipeline.log",
-        encoding="utf-8",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler("pipeline.log"),
+        ],
     )
 
 
 # TODO: RotatingFileHandler
-# TODO: print to console and save to file using handlers?
