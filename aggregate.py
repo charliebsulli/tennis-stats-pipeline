@@ -1,5 +1,7 @@
 import logging
+from datetime import date, datetime, timezone
 
+import pandas as pd
 from sqlalchemy import text
 
 from db_connection import engine
@@ -77,6 +79,48 @@ def compute_head_to_head():
             logger.info(f"Updated head-to-head stats for {len(players)} players")
 
 
+# TODO how often do I update, who do I update?
+# should limit form computation to people with a certain number of matches recently, however I choose to define that
+def compute_form():
+    with engine.connect() as conn:
+        with open("queries/recent_matches.sql") as f:
+            query = text(f.read())
+
+        df = pd.read_sql(query, conn)
+        grouped = df.groupby(["player_id", "surface"])
+
+        output = []
+        for (player_id, surface), df in grouped:
+            output.append(
+                {
+                    "matches_total": len(df),
+                    "won": sum(df["won"]),
+                    "player_id": player_id,
+                    "surface": surface,
+                    "last_updated": datetime.now(timezone.utc),
+                    "weighted_form": find_weighted_form(df, 0.97),
+                }
+            )
+        result = pd.DataFrame(output)
+        print(result.sort_values(by="weighted_form", ascending=False).head(15))
+
+
+def find_weighted_form(df: pd.DataFrame, alpha: float):
+    score, total = 0, 0
+    now = date.today()
+    for index, row in df.iterrows():
+        days_ago = (now - row["match_date"]).days
+        weight = alpha**days_ago
+        total += weight
+        if row["won"]:
+            score += weight
+    if total == 0:
+        logger.warning("Total score for form computation is 0")
+        return 0.0
+    return score / total
+
+
 if __name__ == "__main__":
-    compute_player_surface_stats()
-    compute_head_to_head()
+    # compute_player_surface_stats()
+    # compute_head_to_head()
+    compute_form()
