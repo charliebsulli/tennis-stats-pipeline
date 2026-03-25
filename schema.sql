@@ -171,3 +171,22 @@ CREATE TABLE player_surface_stats (
 
     primary key (player_id, surface, season)
 )
+
+CREATE TABLE head_to_head (
+    player_id       INTEGER REFERENCES players(player_id),
+    opponent_id     INTEGER REFERENCES players(player_id),
+    surface         TEXT,
+    wins            INTEGER NOT NULL,
+    losses          INTEGER NOT NULL,
+    matches_played  INTEGER NOT NULL,
+    last_updated    TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (player_id, opponent_id, surface)
+);
+
+-- used to keep track of which dates filled from API
+-- when backfilling older data (end of 2024 to now)
+
+CREATE TABLE backfill_progress (
+    backfill_date   DATE PRIMARY KEY,
+    completed_at    TIMESTAMPTZ NOT NULL
+);

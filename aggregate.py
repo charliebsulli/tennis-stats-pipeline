@@ -37,7 +37,7 @@ def compute_player_surface_stats():  # TODO these two queries are very similar
             logger.info("No players need surface stats updated.")
         else:
             # update their surface stats
-            with open("player_stats_query.sql") as f:
+            with open("queries/player_stats_query.sql") as f:
                 query = text(f.read())
 
             conn.execute(query, {"player_ids": players})
@@ -69,7 +69,7 @@ def compute_head_to_head():
         if len(players) == 0:
             logger.info("No players need head to head records updated.")
         else:
-            with open("h2h_query.sql") as f:
+            with open("queries/h2h_query.sql") as f:
                 query = text(f.read())
 
             conn.execute(query, {"player_ids": players})
