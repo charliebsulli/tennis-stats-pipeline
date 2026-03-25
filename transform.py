@@ -4,6 +4,7 @@ from datetime import date
 import pandas as pd
 from sqlalchemy import create_engine, text
 
+from constants import ROUND_ORDER
 from db_connection import engine
 from player_id_helper import get_player_id
 
@@ -21,6 +22,7 @@ def set_player_ids(row, conn):
 
 # match api surface names to sackmann surface names
 # everything else passes through
+# TODO put in constants file
 def map_surface_names(surface):
     surface_mapping = {
         "Hardcourt outdoor": "Hard",
@@ -160,6 +162,7 @@ def transform_raw_matches(sackmann_only: bool = False):
     ).dt.date
     new_matches["score"] = new_matches["score"].fillna("Unknown")
     new_matches["round"] = new_matches["round"].fillna("Unknown")
+    new_matches["round_int"] = new_matches["round"].map(lambda x: ROUND_ORDER.get(x))
 
     # match_stats
     winner_stats = df[
