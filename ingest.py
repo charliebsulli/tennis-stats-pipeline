@@ -251,8 +251,6 @@ def ingest_by_date(category, date):
     )
 
 
-# TODO backfill script
-
 # TODO cron job
 
 if __name__ == "__main__":
