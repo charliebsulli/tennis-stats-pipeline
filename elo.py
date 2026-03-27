@@ -37,7 +37,7 @@ def expected_score(rating_one, rating_two):
     return max(0.001, min(0.999, e))
 
 
-def update_elo():
+def get_new_matches():
     with engine.connect() as conn:
         new_matches = pd.read_sql(
             text("""SELECT
@@ -55,12 +55,32 @@ def update_elo():
             conn,
         )
 
-    if new_matches.empty:
-        print("no new matches to compute elo for")
+    return new_matches
+
+
+def get_earliest_match_date():
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""SELECT
+                        MIN(m.match_date) AS earliest_new_date
+                    FROM matches AS m
+                    JOIN tournaments AS t ON m.tournament_id = t.tournament_id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM elo_history AS e WHERE e.match_id = m.match_id
+                    )""")
+        ).fetchone()
+
+    if not result:
+        return None
+    return result.earliest_new_date
+
+
+def update_elo():
+    earliest_match_date = get_earliest_match_date()
+
+    if earliest_match_date is None:
         logger.info("No new matches to compute elo for")
         return
-
-    earliest_match_date = new_matches["match_date"].min()
 
     with engine.connect() as conn:
         result = conn.execute(
@@ -72,10 +92,11 @@ def update_elo():
         conn.commit()
 
     if result.rowcount > 0:
-        print("recomputing elo")
         logger.warning(
             f"Recomputing elo for {result.rowcount} entries starting on {earliest_match_date}"
         )
+
+    new_matches = get_new_matches()
 
     ratings = get_current_ratings()
 
@@ -137,7 +158,6 @@ def update_elo():
         pd.DataFrame(history).to_sql(
             "elo_history", conn, if_exists="append", index=False
         )
-    print(f"Updated ELO for {len(new_matches)} matches")
     logger.info(f"Updated ELO for {len(new_matches)} matches")
 
 
