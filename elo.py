@@ -1,0 +1,144 @@
+import logging
+from collections import defaultdict
+
+import pandas as pd
+from sqlalchemy import text
+
+from db_connection import engine
+
+logger = logging.getLogger(__name__)
+
+
+def get_current_ratings():
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""SELECT DISTINCT ON (e.player_id, e.surface)
+                        e.player_id,
+                        e.surface,
+                        e.elo_after
+                    FROM elo_history AS e
+                    JOIN matches AS m ON e.match_id = m.match_id
+                    ORDER BY e.player_id, e.surface, e.match_date DESC, m.round_int DESC""")
+        ).fetchall()
+
+        ratings = defaultdict(
+            lambda: 1500.0
+        )  # TODO what if a player has other matches on other surfaces alr? those can inform rating start
+
+        for row in result:
+            ratings[(row.player_id, row.surface)] = row.elo_after
+
+        return ratings
+
+
+# expected score for the first player's rating
+def expected_score(rating_one, rating_two):
+    e = 1 / (1 + 10 ** ((rating_two - rating_one) / 400))  # TODO read derivation
+    return max(0.001, min(0.999, e))
+
+
+def update_elo():
+    with engine.connect() as conn:
+        new_matches = pd.read_sql(
+            text("""SELECT
+                        m.match_id,
+                        t.surface,
+                        m.winner_id,
+                        m.loser_id,
+                        m.match_date
+                    FROM matches AS m
+                    JOIN tournaments AS t ON m.tournament_id = t.tournament_id
+                    WHERE NOT EXISTS (
+                        SELECT 1 FROM elo_history AS e WHERE e.match_id = m.match_id
+                    )
+                    ORDER BY m.match_date ASC, m.round_int ASC"""),
+            conn,
+        )
+
+    if new_matches.empty:
+        print("no new matches to compute elo for")
+        logger.info("No new matches to compute elo for")
+        return
+
+    earliest_match_date = new_matches["match_date"].min()
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text("""
+            DELETE FROM elo_history WHERE match_date >= :cutoff
+        """),
+            {"cutoff": earliest_match_date},
+        )
+        conn.commit()
+
+    if result.rowcount > 0:
+        print("recomputing elo")
+        logger.warning(
+            f"Recomputing elo for {result.rowcount} entries starting on {earliest_match_date}"
+        )
+
+    ratings = get_current_ratings()
+
+    history = []
+    for _, match in new_matches.iterrows():
+        w_id = match["winner_id"]
+        l_id = match["loser_id"]
+        surface = match["surface"]
+
+        for s in [surface, "ALL"]:
+            w_rating = ratings[(w_id, s)]
+            l_rating = ratings[(l_id, s)]
+
+            w_expected = expected_score(w_rating, l_rating)
+            l_expected = 1 - w_expected
+
+            # TODO can change k-factor depending on rating, num of recent matches, etc.
+            w_k = 32
+            l_k = 32
+
+            w_new = w_rating + w_k * (1 - w_expected)
+            l_new = l_rating + l_k * (0 - l_expected)
+
+            # update in-memory ratings for subsequent matches
+            ratings[(w_id, s)] = w_new
+            ratings[(l_id, s)] = l_new
+
+            history.extend(
+                [
+                    {
+                        "player_id": w_id,
+                        "match_id": match["match_id"],
+                        "surface": s,
+                        "match_date": match["match_date"],
+                        "elo_before": w_rating,
+                        "elo_after": w_new,
+                        "k_factor": w_k,
+                        "opponent_id": l_id,
+                        "opponent_elo": l_rating,
+                        "expected": w_expected,
+                        "won": True,
+                    },
+                    {
+                        "player_id": l_id,
+                        "match_id": match["match_id"],
+                        "surface": s,
+                        "match_date": match["match_date"],
+                        "elo_before": l_rating,
+                        "elo_after": l_new,
+                        "k_factor": l_k,
+                        "opponent_id": w_id,
+                        "opponent_elo": w_rating,
+                        "expected": l_expected,
+                        "won": False,
+                    },
+                ]
+            )
+    with engine.begin() as conn:
+        pd.DataFrame(history).to_sql(
+            "elo_history", conn, if_exists="append", index=False
+        )
+    print(f"Updated ELO for {len(new_matches)} matches")
+    logger.info(f"Updated ELO for {len(new_matches)} matches")
+
+
+# TODO injury break / other break k-factor logic

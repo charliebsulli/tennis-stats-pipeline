@@ -5,6 +5,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from db_connection import engine
+from elo import update_elo
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +126,8 @@ def find_weighted_form(df: pd.DataFrame, alpha: float):
     return score / total
 
 
-if __name__ == "__main__":
+def derive_stats():
     compute_player_surface_stats()
     compute_head_to_head()
     compute_form()
+    update_elo()

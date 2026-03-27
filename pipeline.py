@@ -2,7 +2,7 @@ import argparse
 import logging
 from datetime import date, datetime, timedelta
 
-from aggregate import compute_head_to_head, compute_player_surface_stats
+from aggregate import compute_head_to_head, compute_player_surface_stats, derive_stats
 from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
 from logging_config import setup_logging
 from transform import transform_raw_matches
@@ -37,5 +37,4 @@ if __name__ == "__main__":
 
     transform_raw_matches()
 
-    compute_player_surface_stats()
-    compute_head_to_head()
+    derive_stats()
