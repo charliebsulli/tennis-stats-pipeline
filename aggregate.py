@@ -79,30 +79,30 @@ def compute_head_to_head():
             logger.info(f"Updated head-to-head stats for {len(players)} players")
 
 
-# TODO how often do I update, who do I update?
-# should limit form computation to people with a certain number of matches recently, however I choose to define that
+# TODO can calibrate weighting fn, how far back we look for matches
 def compute_form():
     with engine.connect() as conn:
         with open("queries/recent_matches.sql") as f:
             query = text(f.read())
-
         df = pd.read_sql(query, conn)
-        grouped = df.groupby(["player_id", "surface"])
 
-        output = []
-        for (player_id, surface), df in grouped:
-            output.append(
-                {
-                    "matches_total": len(df),
-                    "won": sum(df["won"]),
-                    "player_id": player_id,
-                    "surface": surface,
-                    "last_updated": datetime.now(timezone.utc),
-                    "weighted_form": find_weighted_form(df, 0.97),
-                }
-            )
-        result = pd.DataFrame(output)
-        print(result.sort_values(by="weighted_form", ascending=False))
+    grouped = df.groupby(["player_id", "surface"])
+    output = []
+    for (player_id, surface), group in grouped:
+        output.append(
+            {
+                "matches_total": len(group),
+                "won": sum(group["won"]),
+                "player_id": player_id,
+                "surface": surface,
+                "last_updated": datetime.now(timezone.utc),
+                "weighted_form": find_weighted_form(group, 0.97),
+            }
+        )
+    result = pd.DataFrame(output)
+    with engine.begin() as conn:
+        result.to_sql("player_form", conn, if_exists="delete_rows", index=False)
+    logger.info("Updated player form")
 
 
 def find_weighted_form(df: pd.DataFrame, alpha: float):
@@ -110,7 +110,7 @@ def find_weighted_form(df: pd.DataFrame, alpha: float):
         logger.info(
             f"Skipping player form for player with {len(df)} matches in last 90 days"
         )
-        return -1
+        return None
     score, total = 0, 0
     now = date.today()
     for index, row in df.iterrows():
@@ -121,11 +121,11 @@ def find_weighted_form(df: pd.DataFrame, alpha: float):
             score += weight
     if total == 0:
         logger.warning("Total score for form computation is 0")
-        return -1
+        return None
     return score / total
 
 
 if __name__ == "__main__":
-    # compute_player_surface_stats()
-    # compute_head_to_head()
+    compute_player_surface_stats()
+    compute_head_to_head()
     compute_form()

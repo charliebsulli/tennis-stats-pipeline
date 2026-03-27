@@ -61,6 +61,7 @@ def backfill_data(start_date, end_date):
 
 
 if __name__ == "__main__":
-    backfill_data(date(2024, 12, 26), date(2026, 3, 24))
+    backfill_data(date(2026, 1, 1), date(2026, 3, 24))
     # TODO if I want to run this in deployment I should make this command line args
     # TODO backfill will hit api rate limit
+    # TODO HTTP read timeout
