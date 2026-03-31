@@ -74,6 +74,7 @@ def expected_score(rating_one, rating_two):
     e = 1 / (1 + 10 ** ((rating_two - rating_one) / 400))  # TODO read derivation
     return max(0.001, min(0.999, e))
 
+
 def compute_k_factor(matches_played):
     """
     Compute the K-factor for ELO updates based on the number of matches played.
@@ -87,6 +88,7 @@ def compute_k_factor(matches_played):
         return 40
     else:
         return 20
+
 
 def get_new_matches():
     with engine.connect() as conn:
@@ -169,12 +171,18 @@ def update_elo():
         surface = match["surface"]
 
         # averaged ratings before the match, to compute expected score
-        w_avg_surface_rating_before = (ratings[(w_id, surface)] + ratings[(w_id, "ALL")]) / 2
-        l_avg_surface_rating_before = (ratings[(l_id, surface)] + ratings[(l_id, "ALL")]) / 2
-        
-        w_avg_expected_before = expected_score(w_avg_surface_rating_before, l_avg_surface_rating_before)
+        w_avg_surface_rating_before = (
+            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
+        ) / 2
+        l_avg_surface_rating_before = (
+            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
+        ) / 2
+
+        w_avg_expected_before = expected_score(
+            w_avg_surface_rating_before, l_avg_surface_rating_before
+        )
         l_avg_expected_before = 1 - w_avg_expected_before
-        
+
         for s in [surface, "ALL"]:
             w_rating = ratings[(w_id, s)]
             l_rating = ratings[(l_id, s)]
@@ -191,7 +199,6 @@ def update_elo():
 
             w_new = w_rating + w_k * (1 - w_expected)
             l_new = l_rating + l_k * (0 - l_expected)
-
 
             # update in-memory ratings for subsequent matches
             ratings[(w_id, s)] = w_new
@@ -227,11 +234,15 @@ def update_elo():
                     },
                 ]
             )
-        
+
         # averaged ratings after the match, to use for historical ranking
-        w_avg_surface_rating_after = (ratings[(w_id, surface)] + ratings[(w_id, "ALL")]) / 2
-        l_avg_surface_rating_after = (ratings[(l_id, surface)] + ratings[(l_id, "ALL")]) / 2
-        
+        w_avg_surface_rating_after = (
+            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
+        ) / 2
+        l_avg_surface_rating_after = (
+            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
+        ) / 2
+
         averaged_surface_history.extend(
             [
                 {
@@ -239,7 +250,7 @@ def update_elo():
                     "match_id": match["match_id"],
                     "surface": surface,
                     "match_date": match["match_date"],
-                    "expected": w_expected,
+                    "expected": w_avg_expected_before,
                     "won": True,
                     "averaged_surface_elo": w_avg_surface_rating_after,
                     "overall_surface": "ALL",
@@ -249,7 +260,7 @@ def update_elo():
                     "match_id": match["match_id"],
                     "surface": surface,
                     "match_date": match["match_date"],
-                    "expected": l_expected,
+                    "expected": l_avg_expected_before,
                     "won": False,
                     "averaged_surface_elo": l_avg_surface_rating_after,
                     "overall_surface": "ALL",

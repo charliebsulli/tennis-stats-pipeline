@@ -5,7 +5,7 @@ WITH ratings AS (
     FROM elo_history AS e
     JOIN matches AS m ON e.match_id = m.match_id
     WHERE e.surface = 'ALL'
-    AND e.match_date >= NOW() - INTERVAL '1 year'
+    -- AND e.match_date >= NOW() - INTERVAL '1 year'
     ORDER BY e.player_id, e.match_date DESC, m.round_int DESC
 )
 SELECT
