@@ -1,8 +1,7 @@
 import logging
-from datetime import date
 
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 
 from constants import ROUND_ORDER
 from db_connection import engine
@@ -32,71 +31,7 @@ def map_surface_names(surface):
     return surface_mapping.get(surface, surface)
 
 
-def transform_raw_matches(sackmann_only: bool = False):
-    with engine.connect() as conn:
-        df = pd.read_sql(
-            text("""
-            SELECT r.* FROM raw_matches r
-            WHERE NOT EXISTS (
-                SELECT 1 FROM matches m WHERE m.match_id = r.match_id
-            )
-        """),
-            conn,
-        )
-        logger.info("Loaded raw_matches from database")
-    if (
-        df.empty
-    ):  # TODO not sure this check is correct, try running transform back-to-back
-        logger.info("No new matches found for transform.py")
-        return
-
-    if sackmann_only:
-        df = df[df["source"] == "sackmann"]
-    else:
-        # processing for rapidapi data only
-
-        # copy rapidapi_tournament_id to tourney_id
-        mask = df["source"] == "rapidapi"
-        df.loc[mask, "tourney_id"] = df.loc[mask, "rapidapi_tournament_id"].map(str)
-        # set winner_id and loser_id to the translated player_ids
-        with engine.connect() as conn:
-            df.loc[
-                mask,
-                [
-                    "winner_id",
-                    "loser_id",
-                    "rapidapi_winner_id",
-                    "rapidapi_loser_id",
-                    "winner_name",
-                    "loser_name",
-                ],
-            ] = df.loc[
-                mask,
-                [
-                    "winner_id",
-                    "loser_id",
-                    "rapidapi_winner_id",
-                    "rapidapi_loser_id",
-                    "winner_name",
-                    "loser_name",
-                ],
-            ].apply(lambda row: set_player_ids(row, conn), axis=1)
-        # normalize surface names
-        df.loc[mask, "surface"] = df.loc[mask, "surface"].map(map_surface_names)
-        # translate match_date from timestamp to date
-        # so all dates are in the same format before processing
-        df.loc[mask, "tourney_date"] = pd.to_datetime(
-            df.loc[mask, "match_date"], unit="s"
-        )  # .dt.strftime("%Y%m%d")
-
-    # ===================================================================================
-    # processing for all data, both sackmann and rapidapi
-
-    # this handles some errors in sackmann data where the same player is on both sides of the match, 7 cases
-    # will also protect against this happening in future data
-    df = df[df["winner_id"] != df["loser_id"]]
-
-    # tournaments
+def transform_tournaments(df):
     dft = df.drop_duplicates("tourney_id")
     with engine.connect() as conn:
         tournament_ids = {
@@ -115,7 +50,10 @@ def transform_raw_matches(sackmann_only: bool = False):
         }
     )
     new_tournaments = new_tournaments.fillna("Unknown")  # name, surface, level
+    return new_tournaments
 
+
+def transform_players(df):
     # players
     with engine.connect() as conn:
         player_ids = {
@@ -151,20 +89,24 @@ def transform_raw_matches(sackmann_only: bool = False):
     new_players["hand"] = new_players["hand"].fillna(
         "U"
     )  # sackmann data uses U for unknown hand
+    return new_players
 
+
+def transform_matches(df):
     # matches
     new_matches = df[
         ["match_id", "tourney_id", "round", "winner_id", "loser_id", "score"]
     ]
     new_matches = new_matches.rename(columns={"tourney_id": "tournament_id"})
-    new_matches["match_date"] = pd.to_datetime(
-        df["tourney_date"], format="%Y%m%d"
-    ).dt.date
+    new_matches["match_date"] = df["tourney_date"]
     new_matches["score"] = new_matches["score"].fillna("Unknown")
     new_matches["round"] = new_matches["round"].fillna("Unknown")
     new_matches["round_int"] = new_matches["round"].map(lambda x: ROUND_ORDER.get(x))
 
-    # match_stats
+    return new_matches
+
+
+def transform_match_stats(df):
     winner_stats = df[
         [
             "match_id",
@@ -269,6 +211,80 @@ def transform_raw_matches(sackmann_only: bool = False):
         "break_points_chances",
     ]
     match_stats["complete_stats"] = match_stats[match_stats_columns].notna().all(axis=1)
+    return match_stats
+
+
+def transform_raw_matches(sackmann_only: bool = False):
+    with engine.connect() as conn:
+        df = pd.read_sql(
+            text("""
+            SELECT r.* FROM raw_matches r
+            WHERE NOT EXISTS (
+                SELECT 1 FROM matches m WHERE m.match_id = r.match_id
+            )
+        """),
+            conn,
+        )
+        logger.info("Loaded raw_matches from database")
+    if df.empty:
+        logger.info("No new matches found for transform.py")
+        return
+
+    if sackmann_only:
+        df = df[df["source"] == "sackmann"]
+    else:
+        # processing for rapidapi data only
+
+        # copy rapidapi_tournament_id to tourney_id
+        mask = df["source"] == "rapidapi"
+        df.loc[mask, "tourney_id"] = df.loc[mask, "rapidapi_tournament_id"].map(str)
+        # set winner_id and loser_id to the translated player_ids
+        # TODO this is slow since it makes too many calls to the database
+        with engine.connect() as conn:
+            df.loc[
+                mask,
+                [
+                    "winner_id",
+                    "loser_id",
+                    "rapidapi_winner_id",
+                    "rapidapi_loser_id",
+                    "winner_name",
+                    "loser_name",
+                ],
+            ] = df.loc[
+                mask,
+                [
+                    "winner_id",
+                    "loser_id",
+                    "rapidapi_winner_id",
+                    "rapidapi_loser_id",
+                    "winner_name",
+                    "loser_name",
+                ],
+            ].apply(lambda row: set_player_ids(row, conn), axis=1)
+        # normalize surface names
+        df.loc[mask, "surface"] = df.loc[mask, "surface"].map(map_surface_names)
+        df.loc[mask, "tourney_date"] = df.loc[mask, "match_date"]
+
+    # ===================================================================================
+    # processing for all data, both sackmann and rapidapi
+
+    # this handles some errors in sackmann data where the same player is on both sides of the match, 7 cases
+    # will also protect against this happening in future data
+    len_before_drop = len(df)
+    df = df[df["winner_id"] != df["loser_id"]]
+    if len(df) == 0:
+        logger.warning(
+            f"No matches found after winner != loser: {len_before_drop} matches dropped"
+        )
+        return
+
+    logger.info(f"Processing {len(df)} matches")
+
+    new_tournaments = transform_tournaments(df)
+    new_players = transform_players(df)
+    new_matches = transform_matches(df)
+    match_stats = transform_match_stats(df)
 
     logger.info("Finished processing raw matches")
     # ===================================================================================
