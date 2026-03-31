@@ -1,9 +1,10 @@
 import argparse
 import logging
-from datetime import date, datetime, timedelta
+from datetime import datetime
 
-from aggregate import compute_head_to_head, compute_player_surface_stats, derive_stats
-from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
+from aggregate import derive_stats
+from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
+from ingest import ingest_by_date
 from logging_config import setup_logging
 from transform import transform_raw_matches
 
@@ -25,7 +26,7 @@ if __name__ == "__main__":
             query_date = datetime.strptime(args.date, "%Y-%m-%d").date()
         except ValueError:
             logger.exception(
-                f"Error: Invalid date format for --date. Please use YYYY-MM-DD."
+                "Error: Invalid date format for --date. Please use YYYY-MM-DD."
             )
             exit(1)
 

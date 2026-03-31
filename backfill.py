@@ -5,8 +5,9 @@ import pandas as pd
 from sqlalchemy import text
 
 from aggregate import compute_head_to_head, compute_player_surface_stats
+from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from db_connection import engine
-from ingest import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID, ingest_by_date
+from ingest import ingest_by_date
 from logging_config import setup_logging
 from transform import transform_raw_matches
 

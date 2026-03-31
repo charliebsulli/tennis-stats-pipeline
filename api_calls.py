@@ -28,17 +28,16 @@ def make_request(url):
         response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         return response
-    except requests.HTTPError as e:
-        logger.exception(f"Request failed")
+    except requests.HTTPError:
+        logger.exception("Request failed")
         return None
 
 
 def get_matches_by_category_and_date(category, date: date):
-    category_id = category  # TODO
     day = date.day
     month = date.month
     year = date.year
-    url = f"{BASE_URL}/api/tennis/category/{category_id}/events/{day}/{month}/{year}"
+    url = f"{BASE_URL}/api/tennis/category/{category}/events/{day}/{month}/{year}"
 
     return make_request(url)
 

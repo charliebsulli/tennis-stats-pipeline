@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 load_dotenv()
 dataset_path_str = os.getenv("DATASET_PATH")
-if dataset_path_str == None:
+if dataset_path_str is None:
     raise Exception("Dataset path not set")
 DATASET_PATH = Path(dataset_path_str)
 

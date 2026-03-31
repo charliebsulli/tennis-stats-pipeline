@@ -26,3 +26,7 @@ ROUND_ORDER = {
     "F": 7,
     "Final": 7,
 }
+
+K_FACTOR = 32
+ATP_CATEGORY_ID = "3"
+CHALLENGER_CATEGORY_ID = "72"

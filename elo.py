@@ -4,6 +4,7 @@ from collections import defaultdict
 import pandas as pd
 from sqlalchemy import text
 
+from constants import K_FACTOR
 from db_connection import engine
 
 logger = logging.getLogger(__name__)
@@ -128,7 +129,7 @@ def get_earliest_match_date():
     return result.earliest_new_date
 
 
-def update_elo():
+def update_elo():  # TODO injury break?
     earliest_match_date = get_earliest_match_date()
 
     if earliest_match_date is None:
@@ -139,7 +140,7 @@ def update_elo():
 
     with engine.connect() as conn:
         # First, delete from averaged_surface_elo_history
-        avg_result = conn.execute(
+        conn.execute(
             text("""
             DELETE FROM averaged_surface_elo_history WHERE match_date >= :cutoff
             """),
@@ -194,8 +195,8 @@ def update_elo():
             # w_k = compute_k_factor(matches_played_by_player_surface[(w_id, s)])
             # l_k = compute_k_factor(matches_played_by_player_surface[(l_id, s)])
 
-            w_k = 32
-            l_k = 32
+            w_k = K_FACTOR
+            l_k = K_FACTOR
 
             w_new = w_rating + w_k * (1 - w_expected)
             l_new = l_rating + l_k * (0 - l_expected)
@@ -275,7 +276,3 @@ def update_elo():
             "averaged_surface_elo_history", conn, if_exists="append", index=False
         )
     logger.info(f"Updated ELO for {len(new_matches)} matches")
-
-
-# TODO injury break / other break k-factor logic
-# TODO verify elo, check on clay court elo

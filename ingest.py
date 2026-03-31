@@ -7,17 +7,15 @@ import requests
 from sqlalchemy import text
 
 from api_calls import get_match_stats_by_id, get_matches_by_category_and_date
+from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from db_connection import engine
 
 logger = logging.getLogger(__name__)
 
-ATP_CATEGORY_ID = "3"
-CHALLENGER_CATEGORY_ID = "72"
-
 
 def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
-    if response == None:
+    if response is None:
         logger.warning(f"Failed to get matches for category {category} on date {date}")
         return pd.DataFrame()
     try:
@@ -36,7 +34,7 @@ def query_by_date(category, date: date) -> pd.DataFrame:
 def process_daily_matches_into_df(matches):
     # decode the json object into relevant match data and put it into a dataframe
     events = matches.get("events")
-    if events == None:
+    if events is None:
         return pd.DataFrame()
     logger.info(f"Extracting match data for {len(events)} matches")
     rows = [extract_match(match) for match in events]
@@ -147,14 +145,14 @@ def fill_match_stats(df):
 
 def parse_match_stats(response_json, winner_team):
     stats = response_json.get("statistics")
-    if stats == None:
+    if stats is None:
         logger.info("Match stats not found")
         return {}
 
     try:
         res_stats = next(p for p in response_json["statistics"] if p["period"] == "ALL")
     except StopIteration:
-        logger.exception(f"Period ALL not found in stats")
+        logger.exception("Period ALL not found in stats")
         return {}
 
     # index all the stat objects in a statistics_list by key to make the stats easy to access
