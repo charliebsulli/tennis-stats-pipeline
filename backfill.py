@@ -1,19 +1,39 @@
+import argparse
 import logging
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 from sqlalchemy import text
 
-from aggregate.aggregate import compute_head_to_head, compute_player_surface_stats
-from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from db.db_connection import engine
-from ingestion.ingest import ingest_by_date
+from ingestion.ingest import ingest_daily
 from logging_config import setup_logging
-from transform.transform import transform_raw_matches
-
-setup_logging()
 
 logger = logging.getLogger(__name__)
+
+
+def backfill(start_date, end_date):
+    all_dates = pd.date_range(start_date, end_date)
+    completed = get_completed_dates()
+    remaining = [d for d in all_dates if d.date() not in completed]
+
+    logger.info(
+        f"Backfill: {len(completed)} dates already done, {len(remaining)} remaining"
+    )
+
+    for run_date in remaining:
+        logger.info(f"Starting {run_date.date()}")
+        try:
+            ingest_daily(run_date)
+            mark_date_complete(run_date.date())
+            logger.info(
+                f"Completed {run_date.date()} ({remaining.index(run_date) + 1}/{len(remaining)})"
+            )
+        except Exception as e:
+            logger.error(f"Failed on {run_date.date()}: {e}")
+            raise
+
+    logger.info("Backfill complete")
 
 
 def get_completed_dates() -> set:
@@ -34,35 +54,26 @@ def mark_date_complete(date):
         )
 
 
-def backfill_data(start_date, end_date):
-    all_dates = pd.date_range(start_date, end_date)
-    completed = get_completed_dates()
-    remaining = [d for d in all_dates if d.date() not in completed]
-
-    logger.info(
-        f"Backfill: {len(completed)} dates already done, {len(remaining)} remaining"
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--start-date",
+        type=date.fromisoformat,
+        default=date(2024, 12, 26),
+        help="Start date for the backfill (YYYY-MM-DD). Defaults to 2024-12-26.",
     )
-
-    for date in remaining:  # noqa: F402
-        try:
-            ingest_by_date(ATP_CATEGORY_ID, date)
-            ingest_by_date(CHALLENGER_CATEGORY_ID, date)
-            transform_raw_matches()
-            mark_date_complete(date.date())
-            logger.info(
-                f"Completed {date.date()} ({remaining.index(date) + 1}/{len(remaining)})"
-            )
-        except Exception as e:
-            logger.error(f"Failed on {date.date()}: {e}")
-            raise  # stop the backfill, don't skip silently
-
-    logger.info("Backfill complete, running aggregations...")
-    compute_player_surface_stats()
-    compute_head_to_head()
+    parser.add_argument(
+        "--end-date",
+        type=date.fromisoformat,
+        default=date.today() - timedelta(days=1),
+        help="End date for the backfill (YYYY-MM-DD). Defaults to yesterday.",
+    )
+    return parser.parse_args()
 
 
 if __name__ == "__main__":
-    backfill_data(date(2026, 1, 1), date(2026, 3, 24))
-    # TODO if I want to run this in deployment I should make this command line args
+    setup_logging()
+    args = parse_args()
+    backfill(args.start_date, args.end_date)
     # TODO backfill will hit api rate limit
     # TODO HTTP read timeout
