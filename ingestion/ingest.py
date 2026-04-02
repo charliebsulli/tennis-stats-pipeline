@@ -1,10 +1,9 @@
 import logging
 import time
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 
 import pandas as pd
 import requests
-from sqlalchemy import text
 
 from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from db.db_connection import engine
@@ -16,6 +15,46 @@ logger = logging.getLogger(__name__)
 def ingest_daily(date):
     ingest_by_date(ATP_CATEGORY_ID, date)
     ingest_by_date(CHALLENGER_CATEGORY_ID, date)
+
+
+def ingest_by_date(category, date):
+    df = query_by_date(category, date)
+    if df.empty:
+        logger.info(f"No data found for date {date}")
+        return
+
+    df.drop(columns=["winner_team"], inplace=True)
+    df["source"] = "rapidapi"
+    df["time_added"] = datetime.now(timezone.utc).isoformat()
+    df["match_date"] = df["match_date"].map(lambda x: date.fromtimestamp(x))
+    df.columns = df.columns.str.lower()
+
+    with engine.connect() as conn:
+        df.to_sql(
+            "raw_matches",
+            conn,
+            if_exists="append",
+            index=False,
+            method=insert_or_ignore,
+        )
+
+    # TODO actually say how many were added?
+    logger.info(
+        f"Added (or ignored) {len(df)} matches for date {date} and category {category}"
+    )
+
+
+# https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
+# TODO is this ok?
+# its good to stop duplicate matches, but hides error info if something actually goes wrong
+def insert_or_ignore(table, conn, keys, data_iter):
+    raw_conn = conn.connection
+    raw_conn.cursor().executemany(
+        f"INSERT INTO {table.name} ({', '.join(keys)}) "
+        f"VALUES ({', '.join(['%s' for _ in keys])}) "
+        f"ON CONFLICT DO NOTHING",
+        list(data_iter),
+    )
 
 
 def query_by_date(category, date: date) -> pd.DataFrame:
@@ -222,49 +261,4 @@ def parse_match_stats(response_json, winner_team):
     }
 
 
-# https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
-# TODO is this ok?
-# its good to stop duplicate matches, but hides error info if something actually goes wrong
-def insert_or_ignore(table, conn, keys, data_iter):
-    raw_conn = conn.connection
-    raw_conn.cursor().executemany(
-        f"INSERT INTO {table.name} ({', '.join(keys)}) "
-        f"VALUES ({', '.join(['%s' for _ in keys])}) "
-        f"ON CONFLICT DO NOTHING",
-        list(data_iter),
-    )
-
-
-def ingest_by_date(category, date):
-    df = query_by_date(category, date)
-    if df.empty:
-        logger.info(f"No data found for date {date}")
-        return
-
-    df.drop(columns=["winner_team"], inplace=True)
-    df["source"] = "rapidapi"
-    df["time_added"] = datetime.now(timezone.utc).isoformat()
-    df["match_date"] = df["match_date"].map(lambda x: date.fromtimestamp(x))
-    df.columns = df.columns.str.lower()
-
-    with engine.connect() as conn:
-        df.to_sql(
-            "raw_matches",
-            conn,
-            if_exists="append",
-            index=False,
-            method=insert_or_ignore,
-        )
-
-    # TODO actually say how many were added?
-    logger.info(
-        f"Added (or ignored) {len(df)} matches for date {date} and category {category}"
-    )
-
-
 # TODO cron job
-
-if __name__ == "__main__":
-    query_date = date.today() - timedelta(days=12)
-    ingest_by_date(ATP_CATEGORY_ID, query_date)
-    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)

@@ -1,10 +1,10 @@
 import logging
 
 import pandas as pd
+from normalize import ROUND_ORDER, SURFACE_MAPPING
 from rapidfuzz import fuzz, process
 from sqlalchemy import text
 
-from constants import ROUND_ORDER
 from db.db_connection import engine
 from transform.player_id_helper import (
     get_normalized_player_name_dict,
@@ -25,16 +25,8 @@ def set_player_ids(row, conn):
     return row
 
 
-# match api surface names to sackmann surface names
-# everything else passes through
-# TODO put in constants file
 def map_surface_names(surface):
-    surface_mapping = {
-        "Hardcourt outdoor": "Hard",
-        "Hardcourt indoor": "Hard",
-        "Red clay": "Clay",
-    }
-    return surface_mapping.get(surface, surface)
+    return SURFACE_MAPPING.get(surface, surface)
 
 
 def transform_tournaments(df):
@@ -107,7 +99,7 @@ def transform_matches(df):
     new_matches["match_date"] = df["tourney_date"]
     new_matches["score"] = new_matches["score"].fillna("Unknown")
     new_matches["round"] = new_matches["round"].fillna("Unknown")
-    new_matches["round_int"] = new_matches["round"].map(lambda x: ROUND_ORDER.get(x))
+    new_matches["round_int"] = new_matches["round"].map(ROUND_ORDER)
 
     return new_matches
 
