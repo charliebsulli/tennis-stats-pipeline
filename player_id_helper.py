@@ -88,6 +88,7 @@ def generate_player_id(api_player_id, api_name, conn):
     return player_id
 
 
+# TODO match in memory, insert all entries at once
 def seed_player_id_lookup():
     response = get_rankings()
     if response is None:
@@ -126,6 +127,31 @@ def get_player_id(api_player_id, api_name, conn):
     if player_id is not None:
         return player_id
     return generate_player_id(api_player_id, api_name, conn)
+
+
+def get_player_id_lookup_dict(conn):
+    result = conn.execute(
+        text("SELECT api_player_id, player_id FROM player_id_lookup")
+    ).fetchall()
+    return {row.api_player_id: row.player_id for row in result}
+
+
+def get_normalized_player_name_dict(conn):
+    rows = conn.execute(text("SELECT player_id, name FROM players")).fetchall()
+    return {normalize_name(row.name): row.player_id for row in rows}
+
+
+def fuzzy_match_player_name(normalized_name_to_id_dict, api_name):
+    match, confidence, _ = process.extractOne(
+        normalize_name(api_name),
+        normalized_name_to_id_dict.keys(),
+        scorer=fuzz.token_sort_ratio,
+    )
+
+    if confidence >= 90:
+        return normalized_name_to_id_dict[match], confidence
+    else:
+        return None
 
 
 if __name__ == "__main__":

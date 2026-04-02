@@ -1,11 +1,17 @@
 import logging
 
 import pandas as pd
+from rapidfuzz import fuzz, process
 from sqlalchemy import text
 
 from constants import ROUND_ORDER
 from db_connection import engine
-from player_id_helper import get_player_id
+from player_id_helper import (
+    get_normalized_player_name_dict,
+    get_player_id,
+    get_player_id_lookup_dict,
+    normalize_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +220,127 @@ def transform_match_stats(df):
     return match_stats
 
 
+def resolve_player_ids(df: pd.DataFrame, mask, conn) -> tuple[pd.DataFrame, list[dict]]:
+    """
+    Returns the df with winner_id and loser_id filled in,
+    plus a list of new crosswalk entries to insert.
+    """
+    player_id_lookup = get_player_id_lookup_dict(conn)
+    normalized_player_names = get_normalized_player_name_dict(conn)
+
+    new_crosswalk_entries = []
+
+    def resolve_single(api_id, name):
+        if api_id in player_id_lookup:
+            return player_id_lookup[api_id]
+
+        # try fuzzy match against known players
+        match, confidence, _ = process.extractOne(
+            normalize_name(name),
+            normalized_player_names.keys(),
+            scorer=fuzz.token_sort_ratio,
+        )
+
+        if confidence >= 90:
+            player_id = normalized_player_names[match]
+            new_crosswalk_entries.append(
+                {
+                    "player_id": player_id,
+                    "api_player_id": api_id,
+                    "api_name": name,
+                    "match_type": "fuzzy",
+                    "confidence": confidence,
+                }
+            )
+            # update local dict
+            player_id_lookup[api_id] = player_id
+            return player_id
+
+        return None  # mark as None, will resolve later
+
+    # apply function to winner and loser columns
+    df.loc[mask, "winner_id"] = df.loc[mask].apply(
+        lambda row: resolve_single(row["rapidapi_winner_id"], row["winner_name"]),
+        axis=1,
+    )
+    df.loc[mask, "loser_id"] = df.loc[mask].apply(
+        lambda row: resolve_single(row["rapidapi_loser_id"], row["loser_name"]), axis=1
+    )
+
+    return df, new_crosswalk_entries
+
+
+def collect_pending_new_api_players(df, mask):
+    pending = {}
+    empty_winners = mask & df["winner_id"].isna()
+    for api_id, group in df.loc[empty_winners].groupby("rapidapi_winner_id"):
+        row = group.iloc[0]
+        pending[api_id] = {
+            "name": row["winner_name"],
+            "nationality": row["winner_ioc"],
+            "hand": row["winner_hand"],
+        }
+    empty_losers = mask & df["loser_id"].isna()
+    for api_id, group in df.loc[empty_losers].groupby("rapidapi_loser_id"):
+        row = group.iloc[0]
+        if api_id not in pending:
+            pending[api_id] = {
+                "name": row["loser_name"],
+                "nationality": row["loser_ioc"],
+                "hand": row["loser_hand"],
+            }
+    return pending
+
+
+def insert_new_api_players_and_lookup(conn, pending):
+    api_to_pid = {}
+    insert_into_players = text(
+        """INSERT INTO players (name, nationality, hand) VALUES (:name, :nationality, :hand) RETURNING player_id"""
+    )
+    insert_into_player_id_lookup = text(
+        """INSERT INTO player_id_lookup (api_player_id, player_id, api_name, match_type, confidence) VALUES (:api_player_id, :player_id, :api_name, :match_type, :confidence)"""
+    )
+    for api_id, data in pending.items():
+        result = conn.execute(insert_into_players, data).fetchone()
+        player_id = result.player_id
+        api_to_pid[api_id] = player_id
+        conn.execute(
+            insert_into_player_id_lookup,
+            {
+                "api_player_id": api_id,
+                "player_id": player_id,
+                "api_name": data["name"],
+                "match_type": "new",
+                "confidence": -1,
+            },
+        )
+    return api_to_pid
+
+
+def fill_unresolved_api_player_ids(df, mask, api_to_pid):
+    m = mask & df["winner_id"].isna()
+    if m.any():
+        df.loc[m, "winner_id"] = df.loc[m, "rapidapi_winner_id"].map(api_to_pid)
+    m = mask & df["loser_id"].isna()
+    if m.any():
+        df.loc[m, "loser_id"] = df.loc[m, "rapidapi_loser_id"].map(api_to_pid)
+
+
+def insert_fuzzy_matches_into_lookup(fuzzy_matches, conn):
+    if not fuzzy_matches:
+        return
+    insert_stmt = text(
+        """
+        INSERT INTO player_id_lookup 
+            (player_id, api_player_id, api_name, match_type, confidence)
+        VALUES 
+            (:player_id, :api_player_id, :api_name, :match_type, :confidence)
+        """
+    )
+    for entry in fuzzy_matches:
+        conn.execute(insert_stmt, entry)
+
+
 def transform_raw_matches(sackmann_only: bool = False):
     with engine.connect() as conn:
         df = pd.read_sql(
@@ -226,6 +353,7 @@ def transform_raw_matches(sackmann_only: bool = False):
             conn,
         )
         logger.info("Loaded raw_matches from database")
+
     if df.empty:
         logger.info("No new matches found for transform.py")
         return
@@ -234,37 +362,15 @@ def transform_raw_matches(sackmann_only: bool = False):
         df = df[df["source"] == "sackmann"]
     else:
         # processing for rapidapi data only
-
-        # copy rapidapi_tournament_id to tourney_id
         mask = df["source"] == "rapidapi"
+
+        # normalize tourney_id, surface, match date
         df.loc[mask, "tourney_id"] = df.loc[mask, "rapidapi_tournament_id"].map(str)
-        # set winner_id and loser_id to the translated player_ids
-        # TODO this is slow since it makes too many calls to the database
-        with engine.connect() as conn:
-            df.loc[
-                mask,
-                [
-                    "winner_id",
-                    "loser_id",
-                    "rapidapi_winner_id",
-                    "rapidapi_loser_id",
-                    "winner_name",
-                    "loser_name",
-                ],
-            ] = df.loc[
-                mask,
-                [
-                    "winner_id",
-                    "loser_id",
-                    "rapidapi_winner_id",
-                    "rapidapi_loser_id",
-                    "winner_name",
-                    "loser_name",
-                ],
-            ].apply(lambda row: set_player_ids(row, conn), axis=1)
-        # normalize surface names
         df.loc[mask, "surface"] = df.loc[mask, "surface"].map(map_surface_names)
         df.loc[mask, "tourney_date"] = df.loc[mask, "match_date"]
+
+        with engine.connect() as conn:
+            df, new_crosswalk_entries = resolve_player_ids(df, mask, conn)
 
     # ===================================================================================
     # processing for all data, both sackmann and rapidapi
@@ -282,16 +388,26 @@ def transform_raw_matches(sackmann_only: bool = False):
     logger.info(f"Processing {len(df)} matches")
 
     new_tournaments = transform_tournaments(df)
-    new_players = transform_players(df)
-    new_matches = transform_matches(df)
-    match_stats = transform_match_stats(df)
 
     logger.info("Finished processing raw matches")
     # ===================================================================================
     with engine.begin() as conn:
         logger.info("Loading match data into database...")
         new_tournaments.to_sql("tournaments", conn, if_exists="append", index=False)
-        new_players.to_sql("players", conn, if_exists="append", index=False)
+
+        if not sackmann_only:
+            pending = collect_pending_new_api_players(df, mask)
+            if pending:
+                api_to_pid = insert_new_api_players_and_lookup(conn, pending)
+                fill_unresolved_api_player_ids(df, mask, api_to_pid)
+            insert_fuzzy_matches_into_lookup(new_crosswalk_entries, conn)
+        else:
+            new_players = transform_players(df)
+            new_players.to_sql("players", conn, if_exists="append", index=False)
+
+        new_matches = transform_matches(df)
+        match_stats = transform_match_stats(df)
+
         new_matches.to_sql("matches", conn, if_exists="append", index=False)
         match_stats.to_sql("match_stats", conn, if_exists="append", index=False)
     logger.info("Loaded match data into database")
