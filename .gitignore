@@ -9,3 +9,4 @@ __pycache__/
 *.log
 get_surface_names.py
 *.txt
+GEMINI.md

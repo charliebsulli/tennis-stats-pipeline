@@ -4,8 +4,8 @@ from datetime import date, datetime, timezone
 import pandas as pd
 from sqlalchemy import text
 
-from db_connection import engine
-from elo import update_elo
+from aggregate.elo import update_elo
+from db.db_connection import engine
 
 logger = logging.getLogger(__name__)
 

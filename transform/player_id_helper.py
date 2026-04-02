@@ -5,8 +5,8 @@ import unicodedata
 from rapidfuzz import fuzz, process
 from sqlalchemy import text
 
-from api_calls import get_rankings
-from db_connection import engine
+from db.db_connection import engine
+from ingestion.api_calls import get_rankings
 
 logger = logging.getLogger(__name__)
 

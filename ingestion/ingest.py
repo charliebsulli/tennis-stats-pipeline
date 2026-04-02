@@ -6,9 +6,9 @@ import pandas as pd
 import requests
 from sqlalchemy import text
 
-from api_calls import get_match_stats_by_id, get_matches_by_category_and_date
 from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
-from db_connection import engine
+from db.db_connection import engine
+from ingestion.api_calls import get_match_stats_by_id, get_matches_by_category_and_date
 
 logger = logging.getLogger(__name__)
 

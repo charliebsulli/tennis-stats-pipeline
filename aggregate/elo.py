@@ -5,7 +5,7 @@ import pandas as pd
 from sqlalchemy import text
 
 from constants import K_FACTOR
-from db_connection import engine
+from db.db_connection import engine
 
 logger = logging.getLogger(__name__)
 

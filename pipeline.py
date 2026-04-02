@@ -2,15 +2,15 @@ import argparse
 import logging
 from datetime import date, timedelta
 
-from aggregate import (
+from aggregate.aggregate import (
     compute_form,
     compute_head_to_head,
     compute_surface_stats,
 )
-from elo import update_elo
-from ingest import ingest_daily
+from aggregate.elo import update_elo
+from ingestion.ingest import ingest_daily
 from logging_config import setup_logging
-from transform import transform_raw_matches
+from transform.transform import transform_raw_matches
 
 logger = logging.getLogger(__name__)
 
