@@ -13,6 +13,11 @@ from db_connection import engine
 logger = logging.getLogger(__name__)
 
 
+def ingest_daily(date):
+    ingest_by_date(ATP_CATEGORY_ID, date)
+    ingest_by_date(CHALLENGER_CATEGORY_ID, date)
+
+
 def query_by_date(category, date: date) -> pd.DataFrame:
     response = get_matches_by_category_and_date(category, date)
     if response is None:
@@ -75,7 +80,7 @@ def extract_match(match: dict):
         winner_score = "awayScore"
         loser_score = "homeScore"
     else:
-        print(f"Unexpected winnerCode: {winner_code}")
+        logger.warning(f"Unexpected winnerCode: {winner_code}")
         return {}
 
     return {

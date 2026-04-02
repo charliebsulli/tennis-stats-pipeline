@@ -10,7 +10,7 @@ from elo import update_elo
 logger = logging.getLogger(__name__)
 
 
-def compute_player_surface_stats():  # TODO these two queries are very similar
+def compute_surface_stats():  # TODO these two queries are very similar
     with engine.connect() as conn:
         # get the players who need their surface stats updated
         # either 1. matches have been added for this player since their surface stats were last updated

@@ -1,41 +1,43 @@
 import argparse
 import logging
-from datetime import datetime
+from datetime import date, timedelta
 
-from aggregate import derive_stats
-from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
-from ingest import ingest_by_date
+from aggregate import (
+    compute_form,
+    compute_head_to_head,
+    compute_surface_stats,
+)
+from elo import update_elo
+from ingest import ingest_daily
 from logging_config import setup_logging
 from transform import transform_raw_matches
 
-setup_logging()
-
 logger = logging.getLogger(__name__)
 
-if __name__ == "__main__":
+
+def run_pipeline(run_date):
+    logger.info("Starting pipeline run")
+    ingest_daily(run_date)
+    transform_raw_matches()
+    compute_surface_stats()
+    compute_head_to_head()
+    compute_form()
+    update_elo()
+    logger.info("Pipeline complete")
+
+
+def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "date",
-        type=str,
-        help="The date for which to query data (YYYY-MM-DD).",
+        "--date",
+        type=date.fromisoformat,
+        default=date.today() - timedelta(days=1),
+        help="Date to run pipeline for (YYYY-MM-DD). Defaults to yesterday.",
     )
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    if args.date:
-        try:
-            query_date = datetime.strptime(args.date, "%Y-%m-%d").date()
-        except ValueError:
-            logger.exception(
-                "Error: Invalid date format for --date. Please use YYYY-MM-DD."
-            )
-            exit(1)
 
-    logger.info(f"Processing data for date: {query_date}")
-
-    # ingest new data from API
-    ingest_by_date(ATP_CATEGORY_ID, query_date)
-    ingest_by_date(CHALLENGER_CATEGORY_ID, query_date)
-
-    transform_raw_matches()
-
-    derive_stats()
+if __name__ == "__main__":
+    setup_logging()
+    args = parse_args()
+    run_pipeline(args.date)

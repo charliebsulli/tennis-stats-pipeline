@@ -7,13 +7,18 @@ import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import Connection, text
 
-from aggregate import compute_player_surface_stats
+from aggregate import (
+    compute_form,
+    compute_head_to_head,
+    compute_player_surface_stats,
+    compute_surface_stats,
+)
 from db_connection import engine
+from elo import update_elo
 from logging_config import setup_logging
 from player_id_helper import seed_player_id_lookup
 from transform import transform_raw_matches
 
-setup_logging()
 logger = logging.getLogger(__name__)
 
 load_dotenv()
@@ -23,11 +28,20 @@ if dataset_path_str is None:
 DATASET_PATH = Path(dataset_path_str)
 
 
-def seed_from_csv(conn: Connection):
+def create_tables(conn):
+    logger.info("Creating tables")
+    with open("schema.sql") as f:
+        conn.execute(text(f.read()))
+        conn.commit()
+
+
+# TODO move to ingest
+def load_from_csv(conn: Connection):
     row = conn.execute(
         text("SELECT 1 FROM raw_matches LIMIT 1")
     ).fetchone()  # check db is empty
     if not row:
+        logger.info("Seeding raw match data from CSV files")
         files = DATASET_PATH.glob(
             "atp_matches_[12q]*.csv"
         )  # include tour level, qualies, and challengers
@@ -42,20 +56,19 @@ def seed_from_csv(conn: Connection):
             df.to_sql("raw_matches", conn, if_exists="append", index=False)
             conn.commit()
             logger.info(f"Loaded {csv_file.name} - {len(df)} rows")
+    else:
+        logger.warning("Cannot load CSV data unless raw_matches table is empty")
 
 
 if __name__ == "__main__":
+    setup_logging()
+    logger.info("Starting seeding process")
     with engine.connect() as conn:
-        logger.info("Creating tables...")
-        with open("schema.sql") as f:
-            conn.execute(text(f.read()))
-            conn.commit()
-        logger.info("Seeding raw match data from CSV files...")
-        seed_from_csv(conn)
-    logger.info("Transforming raw match data...")
+        create_tables(conn)
+        load_from_csv(conn)
     transform_raw_matches(sackmann_only=True)
-    logger.info("Seeding player ID lookup table...")
-    seed_player_id_lookup()
-    logger.info("Computing advanced statistics...")
-    compute_player_surface_stats()
-    logger.info("Process complete.")
+    compute_surface_stats()
+    compute_head_to_head()
+    compute_form()
+    update_elo()
+    logger.info("Seeding complete")
