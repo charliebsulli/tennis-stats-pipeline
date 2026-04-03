@@ -10,6 +10,156 @@ from db.db_connection import engine
 logger = logging.getLogger(__name__)
 
 
+def update_elo():  # TODO injury break?
+    earliest_match_date = get_earliest_match_date()
+
+    if earliest_match_date is None:
+        logger.info("No new matches to compute elo for")
+        return
+
+    # matches_played_by_player_surface = get_matches_played_by_player_surface()
+
+    with engine.connect() as conn:
+        # First, delete from averaged_surface_elo_history
+        conn.execute(
+            text("""
+            DELETE FROM averaged_surface_elo_history WHERE match_date >= :cutoff
+            """),
+            {"cutoff": earliest_match_date},
+        )
+        # Then, delete from elo_history
+        result = conn.execute(
+            text("""
+            DELETE FROM elo_history WHERE match_date >= :cutoff
+            """),
+            {"cutoff": earliest_match_date},
+        )
+        conn.commit()
+
+    if result.rowcount > 0:
+        logger.warning(
+            f"Recomputing elo for {result.rowcount} entries starting on {earliest_match_date}"
+        )
+
+    logger.info("Computing elo ratings")
+    new_matches = get_new_matches()
+
+    ratings = get_current_ratings()
+
+    history = []
+    averaged_surface_history = []
+    for _, match in new_matches.iterrows():
+        w_id = match["winner_id"]
+        l_id = match["loser_id"]
+        surface = match["surface"]
+
+        # averaged ratings before the match, to compute expected score
+        w_avg_surface_rating_before = (
+            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
+        ) / 2
+        l_avg_surface_rating_before = (
+            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
+        ) / 2
+
+        w_avg_expected_before = expected_score(
+            w_avg_surface_rating_before, l_avg_surface_rating_before
+        )
+        l_avg_expected_before = 1 - w_avg_expected_before
+
+        for s in [surface, "ALL"]:
+            w_rating = ratings[(w_id, s)]
+            l_rating = ratings[(l_id, s)]
+
+            w_expected = expected_score(w_rating, l_rating)
+            l_expected = 1 - w_expected
+
+            # TODO can change k-factor depending on rating, num of recent matches, etc.
+            # w_k = compute_k_factor(matches_played_by_player_surface[(w_id, s)])
+            # l_k = compute_k_factor(matches_played_by_player_surface[(l_id, s)])
+
+            w_k = K_FACTOR
+            l_k = K_FACTOR
+
+            w_new = w_rating + w_k * (1 - w_expected)
+            l_new = l_rating + l_k * (0 - l_expected)
+
+            # update in-memory ratings for subsequent matches
+            ratings[(w_id, s)] = w_new
+            ratings[(l_id, s)] = l_new
+
+            history.extend(
+                [
+                    {
+                        "player_id": w_id,
+                        "match_id": match["match_id"],
+                        "surface": s,
+                        "match_date": match["match_date"],
+                        "elo_before": w_rating,
+                        "elo_after": w_new,
+                        "k_factor": w_k,
+                        "opponent_id": l_id,
+                        "opponent_elo": l_rating,
+                        "expected": w_expected,
+                        "won": True,
+                    },
+                    {
+                        "player_id": l_id,
+                        "match_id": match["match_id"],
+                        "surface": s,
+                        "match_date": match["match_date"],
+                        "elo_before": l_rating,
+                        "elo_after": l_new,
+                        "k_factor": l_k,
+                        "opponent_id": w_id,
+                        "opponent_elo": w_rating,
+                        "expected": l_expected,
+                        "won": False,
+                    },
+                ]
+            )
+
+        # averaged ratings after the match, to use for historical ranking
+        w_avg_surface_rating_after = (
+            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
+        ) / 2
+        l_avg_surface_rating_after = (
+            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
+        ) / 2
+
+        averaged_surface_history.extend(
+            [
+                {
+                    "player_id": w_id,
+                    "match_id": match["match_id"],
+                    "surface": surface,
+                    "match_date": match["match_date"],
+                    "expected": w_avg_expected_before,
+                    "won": True,
+                    "averaged_surface_elo": w_avg_surface_rating_after,
+                    "overall_surface": "ALL",
+                },
+                {
+                    "player_id": l_id,
+                    "match_id": match["match_id"],
+                    "surface": surface,
+                    "match_date": match["match_date"],
+                    "expected": l_avg_expected_before,
+                    "won": False,
+                    "averaged_surface_elo": l_avg_surface_rating_after,
+                    "overall_surface": "ALL",
+                },
+            ]
+        )
+    with engine.begin() as conn:
+        pd.DataFrame(history).to_sql(
+            "elo_history", conn, if_exists="append", index=False
+        )
+        pd.DataFrame(averaged_surface_history).to_sql(
+            "averaged_surface_elo_history", conn, if_exists="append", index=False
+        )
+    logger.info(f"Updated ELO for {len(new_matches)} matches")
+
+
 def get_current_ratings():
     with engine.connect() as conn:
         result = conn.execute(
@@ -127,152 +277,3 @@ def get_earliest_match_date():
     if not result:
         return None
     return result.earliest_new_date
-
-
-def update_elo():  # TODO injury break?
-    earliest_match_date = get_earliest_match_date()
-
-    if earliest_match_date is None:
-        logger.info("No new matches to compute elo for")
-        return
-
-    # matches_played_by_player_surface = get_matches_played_by_player_surface()
-
-    with engine.connect() as conn:
-        # First, delete from averaged_surface_elo_history
-        conn.execute(
-            text("""
-            DELETE FROM averaged_surface_elo_history WHERE match_date >= :cutoff
-            """),
-            {"cutoff": earliest_match_date},
-        )
-        # Then, delete from elo_history
-        result = conn.execute(
-            text("""
-            DELETE FROM elo_history WHERE match_date >= :cutoff
-            """),
-            {"cutoff": earliest_match_date},
-        )
-        conn.commit()
-
-    if result.rowcount > 0:
-        logger.warning(
-            f"Recomputing elo for {result.rowcount} entries starting on {earliest_match_date}"
-        )
-
-    new_matches = get_new_matches()
-
-    ratings = get_current_ratings()
-
-    history = []
-    averaged_surface_history = []
-    for _, match in new_matches.iterrows():
-        w_id = match["winner_id"]
-        l_id = match["loser_id"]
-        surface = match["surface"]
-
-        # averaged ratings before the match, to compute expected score
-        w_avg_surface_rating_before = (
-            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
-        ) / 2
-        l_avg_surface_rating_before = (
-            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
-        ) / 2
-
-        w_avg_expected_before = expected_score(
-            w_avg_surface_rating_before, l_avg_surface_rating_before
-        )
-        l_avg_expected_before = 1 - w_avg_expected_before
-
-        for s in [surface, "ALL"]:
-            w_rating = ratings[(w_id, s)]
-            l_rating = ratings[(l_id, s)]
-
-            w_expected = expected_score(w_rating, l_rating)
-            l_expected = 1 - w_expected
-
-            # TODO can change k-factor depending on rating, num of recent matches, etc.
-            # w_k = compute_k_factor(matches_played_by_player_surface[(w_id, s)])
-            # l_k = compute_k_factor(matches_played_by_player_surface[(l_id, s)])
-
-            w_k = K_FACTOR
-            l_k = K_FACTOR
-
-            w_new = w_rating + w_k * (1 - w_expected)
-            l_new = l_rating + l_k * (0 - l_expected)
-
-            # update in-memory ratings for subsequent matches
-            ratings[(w_id, s)] = w_new
-            ratings[(l_id, s)] = l_new
-
-            history.extend(
-                [
-                    {
-                        "player_id": w_id,
-                        "match_id": match["match_id"],
-                        "surface": s,
-                        "match_date": match["match_date"],
-                        "elo_before": w_rating,
-                        "elo_after": w_new,
-                        "k_factor": w_k,
-                        "opponent_id": l_id,
-                        "opponent_elo": l_rating,
-                        "expected": w_expected,
-                        "won": True,
-                    },
-                    {
-                        "player_id": l_id,
-                        "match_id": match["match_id"],
-                        "surface": s,
-                        "match_date": match["match_date"],
-                        "elo_before": l_rating,
-                        "elo_after": l_new,
-                        "k_factor": l_k,
-                        "opponent_id": w_id,
-                        "opponent_elo": w_rating,
-                        "expected": l_expected,
-                        "won": False,
-                    },
-                ]
-            )
-
-        # averaged ratings after the match, to use for historical ranking
-        w_avg_surface_rating_after = (
-            ratings[(w_id, surface)] + ratings[(w_id, "ALL")]
-        ) / 2
-        l_avg_surface_rating_after = (
-            ratings[(l_id, surface)] + ratings[(l_id, "ALL")]
-        ) / 2
-
-        averaged_surface_history.extend(
-            [
-                {
-                    "player_id": w_id,
-                    "match_id": match["match_id"],
-                    "surface": surface,
-                    "match_date": match["match_date"],
-                    "expected": w_avg_expected_before,
-                    "won": True,
-                    "averaged_surface_elo": w_avg_surface_rating_after,
-                    "overall_surface": "ALL",
-                },
-                {
-                    "player_id": l_id,
-                    "match_id": match["match_id"],
-                    "surface": surface,
-                    "match_date": match["match_date"],
-                    "expected": l_avg_expected_before,
-                    "won": False,
-                    "averaged_surface_elo": l_avg_surface_rating_after,
-                    "overall_surface": "ALL",
-                },
-            ]
-        )
-    with engine.begin() as conn:
-        pd.DataFrame(history).to_sql(
-            "elo_history", conn, if_exists="append", index=False
-        )
-        pd.DataFrame(averaged_surface_history).to_sql(
-            "averaged_surface_elo_history", conn, if_exists="append", index=False
-        )
-    logger.info(f"Updated ELO for {len(new_matches)} matches")

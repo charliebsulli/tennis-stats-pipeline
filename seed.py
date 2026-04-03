@@ -2,12 +2,10 @@ import logging
 
 from sqlalchemy import text
 
-from aggregate.aggregate import (
-    compute_form,
-    compute_head_to_head,
-    compute_surface_stats,
-)
 from aggregate.elo import update_elo
+from aggregate.form import compute_form
+from aggregate.head_to_head import compute_head_to_head
+from aggregate.surface_stats import compute_surface_stats
 from db.db_connection import engine
 from ingestion.sackmann import load_from_csv
 from logging_config import setup_logging
