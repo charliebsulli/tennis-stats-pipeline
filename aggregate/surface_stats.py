@@ -21,7 +21,7 @@ def compute_surface_stats():
                 "JOIN raw_matches AS r on ms.match_id = r.match_id "
                 "WHERE ps.surface = 'ALL' AND ps.season = 0 "
                 "GROUP BY p.player_id "
-                "HAVING MAX(r.time_added) > MIN(ps.last_updated) "  # TODO if you run aggregate before transform after ingest, you will miss results
+                "HAVING MAX(r.time_added) > MIN(ps.last_updated) "
                 "UNION ALL "
                 "SELECT p.player_id FROM players AS p "
                 "WHERE NOT EXISTS ( "

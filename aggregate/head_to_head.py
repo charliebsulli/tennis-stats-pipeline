@@ -17,7 +17,7 @@ def compute_head_to_head():
                 "JOIN raw_matches AS r on ms.match_id = r.match_id "
                 "WHERE h.surface = 'ALL' "
                 "GROUP BY p.player_id "
-                "HAVING MAX(r.time_added) > MIN(h.last_updated) "  # TODO
+                "HAVING MAX(r.time_added) > MIN(h.last_updated) "
                 "UNION ALL "
                 "SELECT p.player_id FROM players AS p "
                 "WHERE NOT EXISTS ( "

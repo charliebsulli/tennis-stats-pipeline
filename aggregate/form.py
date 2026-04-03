@@ -9,7 +9,6 @@ from db.db_connection import engine
 logger = logging.getLogger(__name__)
 
 
-# TODO can calibrate weighting fn, how far back we look for matches
 def compute_form():
     logger.info("Updating player form")
     with engine.connect() as conn:

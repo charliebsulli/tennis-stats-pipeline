@@ -10,24 +10,20 @@ from db.db_connection import engine
 logger = logging.getLogger(__name__)
 
 
-def update_elo():  # TODO injury break?
+def update_elo():
     earliest_match_date = get_earliest_match_date()
 
     if earliest_match_date is None:
         logger.info("No new matches to compute elo for")
         return
 
-    # matches_played_by_player_surface = get_matches_played_by_player_surface()
-
     with engine.connect() as conn:
-        # First, delete from averaged_surface_elo_history
         conn.execute(
             text("""
             DELETE FROM averaged_surface_elo_history WHERE match_date >= :cutoff
             """),
             {"cutoff": earliest_match_date},
         )
-        # Then, delete from elo_history
         result = conn.execute(
             text("""
             DELETE FROM elo_history WHERE match_date >= :cutoff
@@ -72,10 +68,6 @@ def update_elo():  # TODO injury break?
 
             w_expected = expected_score(w_rating, l_rating)
             l_expected = 1 - w_expected
-
-            # TODO can change k-factor depending on rating, num of recent matches, etc.
-            # w_k = compute_k_factor(matches_played_by_player_surface[(w_id, s)])
-            # l_k = compute_k_factor(matches_played_by_player_surface[(l_id, s)])
 
             w_k = K_FACTOR
             l_k = K_FACTOR
@@ -172,9 +164,7 @@ def get_current_ratings():
                     ORDER BY e.player_id, e.surface, e.match_date DESC, m.round_int DESC""")
         ).fetchall()
 
-        ratings = defaultdict(
-            lambda: 1500.0
-        )  # TODO what if a player has other matches on other surfaces alr? those can inform rating start
+        ratings = defaultdict(lambda: 1500.0)
 
         for row in result:
             ratings[(row.player_id, row.surface)] = row.elo_after
@@ -222,23 +212,8 @@ def get_matches_played_by_player_surface():
 
 # expected score for the first player's rating
 def expected_score(rating_one, rating_two):
-    e = 1 / (1 + 10 ** ((rating_two - rating_one) / 400))  # TODO read derivation
+    e = 1 / (1 + 10 ** ((rating_two - rating_one) / 400))
     return max(0.001, min(0.999, e))
-
-
-def compute_k_factor(matches_played):
-    """
-    Compute the K-factor for ELO updates based on the number of matches played.
-    Args:
-        matches_played (int): Number of matches a player has played.
-
-    Returns:
-        int: K-factor (40 if matches played < 30, else 20)
-    """
-    if matches_played < 30:
-        return 40
-    else:
-        return 20
 
 
 def get_new_matches():
