@@ -1,14 +1,132 @@
-import json
 import logging
 import unicodedata
 
+import pandas as pd
 from rapidfuzz import fuzz, process
 from sqlalchemy import text
 
-from db.db_connection import engine
-from ingestion.api_calls import get_rankings
-
 logger = logging.getLogger(__name__)
+
+
+def resolve_player_ids(df: pd.DataFrame, mask, conn) -> tuple[pd.DataFrame, list[dict]]:
+    """
+    Returns the df with winner_id and loser_id filled in,
+    plus a list of new crosswalk entries to insert.
+    """
+    player_id_lookup = get_player_id_lookup_dict(conn)
+    normalized_player_names = get_normalized_player_name_dict(conn)
+
+    new_crosswalk_entries = []
+
+    def resolve_single(api_id, name):
+        if api_id in player_id_lookup:
+            return player_id_lookup[api_id]
+
+        # try fuzzy match against known players
+        match, confidence, _ = process.extractOne(
+            normalize_name(name),
+            normalized_player_names.keys(),
+            scorer=fuzz.token_sort_ratio,
+        )
+
+        if confidence >= 90:
+            player_id = normalized_player_names[match]
+            new_crosswalk_entries.append(
+                {
+                    "player_id": player_id,
+                    "api_player_id": api_id,
+                    "api_name": name,
+                    "match_type": "fuzzy",
+                    "confidence": confidence,
+                }
+            )
+            # update local dict
+            player_id_lookup[api_id] = player_id
+            return player_id
+
+        return None  # mark as None, will resolve later
+
+    # apply function to winner and loser columns
+    df.loc[mask, "winner_id"] = df.loc[mask].apply(
+        lambda row: resolve_single(row["rapidapi_winner_id"], row["winner_name"]),
+        axis=1,
+    )
+    df.loc[mask, "loser_id"] = df.loc[mask].apply(
+        lambda row: resolve_single(row["rapidapi_loser_id"], row["loser_name"]), axis=1
+    )
+
+    return df, new_crosswalk_entries
+
+
+def collect_pending_new_api_players(df, mask):
+    pending = {}
+    empty_winners = mask & df["winner_id"].isna()
+    for api_id, group in df.loc[empty_winners].groupby("rapidapi_winner_id"):
+        row = group.iloc[0]
+        pending[api_id] = {
+            "name": row["winner_name"],
+            "nationality": row["winner_ioc"],
+            "hand": row["winner_hand"],
+        }
+    empty_losers = mask & df["loser_id"].isna()
+    for api_id, group in df.loc[empty_losers].groupby("rapidapi_loser_id"):
+        row = group.iloc[0]
+        if api_id not in pending:
+            pending[api_id] = {
+                "name": row["loser_name"],
+                "nationality": row["loser_ioc"],
+                "hand": row["loser_hand"],
+            }
+    return pending
+
+
+def insert_new_api_players_and_lookup(conn, pending):
+    api_to_pid = {}
+    insert_into_players = text(
+        """INSERT INTO players (name, nationality, hand) VALUES (:name, :nationality, :hand) RETURNING player_id"""
+    )
+    insert_into_player_id_lookup = text(
+        """INSERT INTO player_id_lookup (api_player_id, player_id, api_name, match_type, confidence) VALUES (:api_player_id, :player_id, :api_name, :match_type, :confidence)"""
+    )
+    for api_id, data in pending.items():
+        result = conn.execute(insert_into_players, data).fetchone()
+        player_id = result.player_id
+        api_to_pid[api_id] = player_id
+        conn.execute(
+            insert_into_player_id_lookup,
+            {
+                "api_player_id": api_id,
+                "player_id": player_id,
+                "api_name": data["name"],
+                "match_type": "new",
+                "confidence": -1,
+            },
+        )
+    return api_to_pid
+
+
+def fill_unresolved_api_player_ids(df, mask, api_to_pid):
+    m = mask & df["winner_id"].isna()
+    if m.any():
+        df.loc[m, "winner_id"] = df.loc[m, "rapidapi_winner_id"].map(api_to_pid)
+    m = mask & df["loser_id"].isna()
+    if m.any():
+        df.loc[m, "loser_id"] = df.loc[m, "rapidapi_loser_id"].map(api_to_pid)
+
+
+def insert_fuzzy_matches_into_lookup(fuzzy_matches, conn):
+    if not fuzzy_matches:
+        return
+    insert_stmt = text(
+        """
+        INSERT INTO player_id_lookup 
+            (player_id, api_player_id, api_name, match_type, confidence)
+        VALUES 
+            (:player_id, :api_player_id, :api_name, :match_type, :confidence)
+        """
+    )
+    for entry in fuzzy_matches:
+        conn.execute(insert_stmt, entry)
 
 
 def normalize_name(name: str) -> str:
@@ -21,114 +139,6 @@ def normalize_name(name: str) -> str:
     return name
 
 
-def fuzzy_match_player(api_player_id, api_name, conn):
-    rows = conn.execute(text("SELECT player_id, name FROM players")).fetchall()
-    names = {normalize_name(row.name): row.player_id for row in rows}
-
-    if not names:
-        raise ValueError(
-            "No players in database to match against, populate players by transforming seed data first"
-        )
-
-    match, confidence, _ = process.extractOne(
-        normalize_name(api_name), names.keys(), scorer=fuzz.token_sort_ratio
-    )
-
-    if confidence >= 90:
-        conn.execute(
-            text("""
-            INSERT INTO player_id_lookup (player_id, api_player_id, api_name, match_type, confidence)
-            VALUES (:player_id, :api_player_id, :api_name, :match_type, :confidence)
-        """),
-            {
-                "player_id": names[match],
-                "api_player_id": api_player_id,
-                "api_name": api_name,
-                "match_type": "auto",
-                "confidence": confidence,
-            },
-        )
-        return names[match]
-    else:
-        return None
-
-
-def translate_player_id(api_player_id, conn):
-    result = conn.execute(
-        text("""
-        SELECT player_id FROM player_id_lookup WHERE api_player_id = :api_player_id
-    """),
-        {"api_player_id": api_player_id},
-    ).fetchone()
-    return result.player_id if result else None
-
-
-def generate_player_id(api_player_id, api_name, conn):
-    result = conn.execute(
-        text("""
-        INSERT INTO players (name) VALUES (:name) RETURNING player_id
-    """),
-        {"name": api_name},
-    ).fetchone()
-    player_id = result.player_id
-
-    conn.execute(
-        text("""
-        INSERT INTO player_id_lookup (player_id, api_player_id, api_name, match_type, confidence)
-        VALUES (:player_id, :api_player_id, :api_name, :match_type, :confidence)
-    """),
-        {
-            "player_id": player_id,
-            "api_player_id": api_player_id,
-            "api_name": api_name,
-            "match_type": "new",
-            "confidence": -1,
-        },
-    )
-    return player_id
-
-
-# TODO match in memory, insert all entries at once
-def seed_player_id_lookup():
-    response = get_rankings()
-    if response is None:
-        logger.warning(
-            "Failed to fetch rankings. Skipping player_id lookup table seeding..."
-        )
-        return
-    try:
-        response_json = response.json()
-    except json.JSONDecodeError as e:
-        logger.exception(f"Failed to decode JSON response")
-        logger.warning("Skipping player_id lookup table seeding...")
-        return
-    try:
-        name_id_pairs = [
-            (p["team"]["name"], p["team"]["id"]) for p in response_json["rankings"]
-        ]
-    except KeyError:
-        logger.exception(
-            "Unexpected format of JSON. Skipping player_id lookup table seeding..."
-        )
-        return
-
-    with engine.begin() as conn:
-        for name, api_id in name_id_pairs:
-            player_id = fuzzy_match_player(api_id, name, conn)
-            if player_id is None:
-                generate_player_id(api_id, name, conn)
-
-
-def get_player_id(api_player_id, api_name, conn):
-    player_id = translate_player_id(api_player_id, conn)
-    if player_id is not None:
-        return player_id
-    player_id = fuzzy_match_player(api_player_id, api_name, conn)
-    if player_id is not None:
-        return player_id
-    return generate_player_id(api_player_id, api_name, conn)
-
-
 def get_player_id_lookup_dict(conn):
     result = conn.execute(
         text("SELECT api_player_id, player_id FROM player_id_lookup")
@@ -139,20 +149,3 @@ def get_player_id_lookup_dict(conn):
 def get_normalized_player_name_dict(conn):
     rows = conn.execute(text("SELECT player_id, name FROM players")).fetchall()
     return {normalize_name(row.name): row.player_id for row in rows}
-
-
-def fuzzy_match_player_name(normalized_name_to_id_dict, api_name):
-    match, confidence, _ = process.extractOne(
-        normalize_name(api_name),
-        normalized_name_to_id_dict.keys(),
-        scorer=fuzz.token_sort_ratio,
-    )
-
-    if confidence >= 90:
-        return normalized_name_to_id_dict[match], confidence
-    else:
-        return None
-
-
-if __name__ == "__main__":
-    seed_player_id_lookup()
