@@ -112,7 +112,7 @@ def process_daily_matches_into_df(matches):
 
 
 def extract_match(match: dict):
-    if match.get("status", {}).get("code") != 100:  # TODO find possible status codes
+    if match.get("status", {}).get("code") != 100:
         return {}  # these will be dropped
 
     if len(match.get("homeTeam", {}).get("subTeams", [])) > 0:
@@ -157,7 +157,6 @@ def extract_match(match: dict):
     }
 
 
-# TODO: add tiebreak scores
 def compute_score(winner_score, loser_score) -> str:
     score_parts = []
     for i in range(1, 6):  # Iterate through period1 to period5
@@ -190,9 +189,7 @@ def fill_match_stats(df):
                 logger.exception(
                     f"Failed to decode JSON response: {e} for match {row['rapidapi_match_id']}"
                 )
-        logger.info(
-            f"Filled detailed stats for match {row['rapidapi_match_id']}"
-        )  # TODO takes lots of log space
+        logger.info(f"Filled detailed stats for match {row['rapidapi_match_id']}")
         time.sleep(0.2)  # to avoid hitting rate limits
     stats_df = pd.DataFrame(stats_rows)
     return pd.merge(df, stats_df, on="rapidapi_match_id", how="left")
@@ -270,6 +267,3 @@ def parse_match_stats(response_json, winner_team):
         "l_bpSaved": res_stats_dict.get("breakPointsSaved", {}).get(loser_value),
         "l_bpFaced": res_stats_dict.get("breakPointsSaved", {}).get(loser_total),
     }
-
-
-# TODO cron job
