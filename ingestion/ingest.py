@@ -4,6 +4,7 @@ from datetime import date, datetime, timezone
 
 import pandas as pd
 import requests
+from psycopg2.extras import execute_values
 
 from constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from db.db_connection import engine
@@ -28,33 +29,42 @@ def ingest_by_date(category, date):
     df["time_added"] = datetime.now(timezone.utc).isoformat()
     df["match_date"] = df["match_date"].map(lambda x: date.fromtimestamp(x))
     df.columns = df.columns.str.lower()
+    df = df.drop_duplicates("rapidapi_match_id")
+
+    logger.info(f"Attempting to insert {len(df)} matches")
 
     with engine.connect() as conn:
-        df.to_sql(
+        rows = df.to_sql(
             "raw_matches",
             conn,
             if_exists="append",
             index=False,
             method=insert_or_ignore,
         )
-
-    # TODO actually say how many were added?
-    logger.info(
-        f"Added (or ignored) {len(df)} matches for date {date} and category {category}"
-    )
+        logger.info(f"Inserted {rows} matches for date {date} and category {category}")
 
 
-# https://pandas.pydata.org/docs/user_guide/io.html#insertion-method
-# TODO is this ok?
-# its good to stop duplicate matches, but hides error info if something actually goes wrong
 def insert_or_ignore(table, conn, keys, data_iter):
     raw_conn = conn.connection
-    raw_conn.cursor().executemany(
-        f"INSERT INTO {table.name} ({', '.join(keys)}) "
-        f"VALUES ({', '.join(['%s' for _ in keys])}) "
-        f"ON CONFLICT DO NOTHING",
-        list(data_iter),
-    )
+    rows = list(data_iter)
+
+    if not rows:
+        return 0
+
+    columns = ", ".join(keys)
+
+    query = f"""
+        INSERT INTO {table.name} ({columns})
+        VALUES %s
+        ON CONFLICT (rapidapi_match_id) DO NOTHING
+        RETURNING 1
+    """
+
+    with raw_conn.cursor() as cur:
+        execute_values(cur, query, rows)
+        inserted = cur.fetchall()
+
+    return len(inserted)
 
 
 def query_by_date(category, date: date) -> pd.DataFrame:
@@ -97,6 +107,7 @@ def process_daily_matches_into_df(matches):
     df[id_columns] = df[id_columns].astype(
         "Int64"
     )  # make sure ids are ints, not floats
+    logger.info(f"{len(df)} valid matches found")
     return df
 
 
