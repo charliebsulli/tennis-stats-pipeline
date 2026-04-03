@@ -1,4 +1,4 @@
-INSERT INTO player_surface_stats ( -- TODO I think its pointless to join players here, ms has player id
+INSERT INTO player_surface_stats (
   last_updated,
   player_id,
   surface,

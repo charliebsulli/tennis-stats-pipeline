@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from datetime import date
 
 import requests
@@ -15,6 +16,9 @@ if API_KEY is None:
 
 BASE_URL = "https://tennisapi1.p.rapidapi.com"
 
+REQUEST_TIMEOUT_SEC = 10
+READ_TIMEOUT_RETRIES = 5
+
 HEADERS = {
     "x-rapidapi-key": API_KEY,
     "x-rapidapi-host": "tennisapi1.p.rapidapi.com",
@@ -22,15 +26,30 @@ HEADERS = {
 }
 
 
-# wrapper to check status
 def make_request(url):
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        return response
-    except requests.HTTPError:
-        logger.exception("Request failed")
-        return None
+    for attempt in range(READ_TIMEOUT_RETRIES):
+        try:
+            response = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT_SEC)
+            response.raise_for_status()
+            return response
+        except requests.exceptions.ReadTimeout:
+            logger.warning(
+                "Read timeout for %s (attempt %s/%s)",
+                url,
+                attempt + 1,
+                READ_TIMEOUT_RETRIES,
+            )
+            if attempt < READ_TIMEOUT_RETRIES - 1:
+                time.sleep(0.6 * (attempt + 1))
+        except requests.HTTPError:
+            logger.exception("Request failed for %s", url)
+            return None
+        except requests.RequestException:
+            logger.exception("Request failed for %s", url)
+            return None
+
+    logger.error("Read timeout after %s attempts for %s", READ_TIMEOUT_RETRIES, url)
+    return None
 
 
 def get_matches_by_category_and_date(category, date: date):

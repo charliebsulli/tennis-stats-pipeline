@@ -21,6 +21,7 @@ def backfill(start_date, end_date):
         f"Backfill: {len(completed)} dates already done, {len(remaining)} remaining"
     )
 
+    date_count = 0
     for run_date in remaining:
         logger.info(f"Starting {run_date.date()}")
         try:
@@ -29,9 +30,14 @@ def backfill(start_date, end_date):
             logger.info(
                 f"Completed {run_date.date()} ({remaining.index(run_date) + 1}/{len(remaining)})"
             )
+            date_count += 1
         except Exception as e:
             logger.error(f"Failed on {run_date.date()}: {e}")
             raise
+        if (
+            date_count > 90
+        ):  # 90 days worth of matches will stay safely below daily API limit
+            return
 
     logger.info("Backfill complete")
 
@@ -75,5 +81,3 @@ if __name__ == "__main__":
     setup_logging()
     args = parse_args()
     backfill(args.start_date, args.end_date)
-    # TODO backfill will hit api rate limit
-    # TODO HTTP read timeout
