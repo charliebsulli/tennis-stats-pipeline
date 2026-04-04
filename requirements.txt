@@ -5,4 +5,5 @@ psycopg2-binary
 rapidfuzz
 python-dotenv
 # fastapi
-# pytest
+pytest
+ruff
