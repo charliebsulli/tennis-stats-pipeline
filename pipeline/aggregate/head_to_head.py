@@ -32,7 +32,7 @@ def compute_head_to_head():
             logger.info("No players need head to head records updated.")
         else:
             logger.info("Updating head-to-head stats")
-            with open("queries/h2h_query.sql") as f:
+            with open("pipeline/queries/h2h_query.sql") as f:
                 query = text(f.read())
 
             conn.execute(query, {"player_ids": players})

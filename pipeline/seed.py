@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def create_tables(conn):
     logger.info("Creating tables")
-    with open("schema.sql") as f:
+    with open("pipeline/schema.sql") as f:
         conn.execute(text(f.read()))
         conn.commit()
 

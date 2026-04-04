@@ -10,3 +10,4 @@ __pycache__/
 get_surface_names.py
 *.txt
 GEMINI.md
+.DS_Store

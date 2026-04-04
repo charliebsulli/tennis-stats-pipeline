@@ -4,6 +4,6 @@ sqlalchemy
 psycopg2-binary
 rapidfuzz
 python-dotenv
-# fastapi
+fastapi
 pytest
 ruff

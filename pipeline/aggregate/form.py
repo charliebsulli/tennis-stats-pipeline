@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def compute_form():
     logger.info("Updating player form")
     with engine.connect() as conn:
-        with open("queries/recent_matches.sql") as f:
+        with open("pipeline/queries/recent_matches.sql") as f:
             query = text(f.read())
         df = pd.read_sql(query, conn)
 

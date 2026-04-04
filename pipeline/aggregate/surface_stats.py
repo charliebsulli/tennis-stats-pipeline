@@ -36,7 +36,7 @@ def compute_surface_stats():
             logger.info("No players need surface stats updated.")
         else:
             logger.info("Updating surface stats")
-            with open("queries/player_stats_query.sql") as f:
+            with open("pipeline/queries/player_stats_query.sql") as f:
                 query = text(f.read())
 
             conn.execute(query, {"player_ids": players})
