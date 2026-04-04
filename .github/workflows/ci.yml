@@ -5,6 +5,10 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+        DATASET_PATH: "test"
+        API_KEY: "test"
+        DB_CONNECTION_STR: "test"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
