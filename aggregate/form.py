@@ -43,12 +43,16 @@ def find_weighted_form(df: pd.DataFrame, alpha: float):
         return None
     score, total = 0, 0
     now = date.today()
-    for index, row in df.iterrows():
-        days_ago = (now - row["match_date"]).days
-        weight = alpha**days_ago
-        total += weight
-        if row["won"]:
-            score += weight
+    df["days_ago"] = (now - df["match_date"]).dt.days
+    df["weight"] = alpha ** df["days_ago"]
+    score = (df["won"] * df["weight"]).sum()
+    total = df["weight"].sum()
+    # for index, row in df.iterrows():
+    #     days_ago = (now - row["match_date"]).days
+    #     weight = alpha**days_ago
+    #     total += weight
+    #     if row["won"]:
+    #         score += weight
     if total == 0:
         logger.warning("Total score for form computation is 0")
         return None
