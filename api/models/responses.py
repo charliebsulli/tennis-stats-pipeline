@@ -133,3 +133,12 @@ class MatchResponse(BaseModel):
     loser_id: int
     loser_name: str
     score: str
+
+
+class EloRankingEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    name: str
+    surface: Surface
+    elo: float
+    rank: int
