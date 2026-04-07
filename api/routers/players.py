@@ -15,11 +15,12 @@ from models.responses import (
 )
 from sqlalchemy import text
 
-router = APIRouter(prefix="/players")
+router = APIRouter(prefix="/players", tags=["players"])
 
 
 @router.get("/search")
 async def search_players(name: str, conn=Depends(get_conn)) -> List[Player]:
+    """Search for players by name."""
     rows = conn.execute(
         text("""
         SELECT player_id, name, nationality, hand
@@ -36,6 +37,7 @@ async def search_players(name: str, conn=Depends(get_conn)) -> List[Player]:
 
 @router.get("/{player_id}")
 async def get_player(player_id: int, conn=Depends(get_conn)) -> Player:
+    """Get profile information for a player by ID."""
     row = conn.execute(
         text("""
         SELECT player_id, name, nationality, hand
@@ -58,6 +60,7 @@ async def get_player_stats(
     season: int = 0,
     conn=Depends(get_conn),
 ) -> PlayerStatsResponse:
+    """Retrieve detailed serve and return stats for a player."""
     row = conn.execute(
         text("""
         SELECT
@@ -147,6 +150,9 @@ async def get_player_stats(
 async def get_player_elo(
     player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
 ) -> EloResponse:
+    """
+    Returns the latest Elo rating for a player over the past year. Player must have played within the last 365 days to have a current Elo rating.
+    """
     query = ""
     if surface is Surface.all:
         query += """
@@ -202,12 +208,11 @@ async def get_player_elo(
     )
 
 
-@router.get(
-    "/{player_id}/elo/history"
-)  # TODO history can look ambiguous since multiple matches w/ same date in old data
+@router.get("/{player_id}/elo/history")
 async def get_player_elo_history(
     player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
 ) -> List[EloHistoryEntry]:
+    """Get the historical Elo rating progression for a player."""
     query = ""
     if surface is Surface.all:
         query += """
@@ -244,6 +249,7 @@ async def get_player_elo_history(
 async def get_player_form(
     player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
 ) -> PlayerFormResponse:
+    """Retrieve current performance form metrics for a player."""
     row = conn.execute(
         text("""
         SELECT
@@ -272,6 +278,7 @@ async def get_player_matches(
     limit: int = 20,
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
+    """Retrieve a list of recent matches for a specific player."""
     query = """
         SELECT
             m.match_id,

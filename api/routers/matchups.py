@@ -1,5 +1,4 @@
 from datetime import datetime, timezone
-from typing import List
 
 from db import get_conn
 from fastapi import APIRouter, Depends, HTTPException

@@ -82,8 +82,6 @@ CREATE TABLE tournaments (
     tournament_level TEXT NOT NULL
 );
 
--- will have to decide whether each year of an event counts as a separate tournament or same
-
 CREATE TABLE matches (
     match_id INTEGER PRIMARY KEY,
     tournament_id TEXT REFERENCES tournaments(tournament_id),
@@ -143,8 +141,8 @@ CREATE TABLE player_surface_stats (
     last_updated TIMESTAMPTZ NOT NULL,
 
     player_id INTEGER REFERENCES players(player_id),
-    surface TEXT, -- NULL for all surfaces
-    season INTEGER, -- year, NULL for career
+    surface TEXT, -- "ALL" for all surfaces
+    season INTEGER, -- year, 0 for career
 
     matches_played INTEGER,
     won INTEGER,

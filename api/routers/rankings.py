@@ -2,7 +2,7 @@ from datetime import date, datetime, timezone
 from typing import List
 
 from db import get_conn
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from models.responses import (
     EloRankingEntry,
     Surface,
@@ -12,11 +12,11 @@ from sqlalchemy import text
 router = APIRouter(prefix="/rankings", tags=["rankings"])
 
 
-# TODO specify date
 @router.get("/")
 async def get_elo_rankings(
     surface: Surface = Surface.all, date: date | None = None, conn=Depends(get_conn)
 ) -> List[EloRankingEntry]:
+    """Retrieve the top Elo-ranked players for a specific surface and date."""
     if date is None:
         date = datetime.now(timezone.utc).date()
     query = ""

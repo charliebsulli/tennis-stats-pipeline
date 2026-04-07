@@ -7,7 +7,7 @@ from models.responses import (
 )
 from sqlalchemy import text
 
-router = APIRouter(prefix="/matches")
+router = APIRouter(prefix="/matches", tags=["matches"])
 
 
 @router.get("/recent")
@@ -15,6 +15,7 @@ async def get_recent_matches(
     limit: int = 20,
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
+    """Retrieve the most recently completed matches."""
     rows = conn.execute(
         text("""
         SELECT
@@ -43,6 +44,7 @@ async def get_recent_matches(
 
 @router.get("/{match_id}")
 async def get_match(match_id: int, conn=Depends(get_conn)) -> MatchResponse:
+    """Retrieve details for a specific match by ID."""
     row = conn.execute(
         text("""
         SELECT
