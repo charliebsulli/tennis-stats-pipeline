@@ -6,14 +6,14 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-        DATASET_PATH: "test"
-        API_KEY: "test"
-        DB_CONNECTION_STR: "test"
+      DB_CONNECTION_STR: "sqlite:///:memory:"
+      API_KEY: "test"
+      DATASET_PATH: "test"
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
           python-version: '3.14'
       - run: pip install -r requirements.txt
-      - run: python -m pytest tests/
+      - run: python -m pytest pipeline/tests/
       - run: python -m ruff check . 
