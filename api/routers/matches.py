@@ -1,7 +1,7 @@
 from typing import List
 
 from db import get_conn
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from models.responses import (
     MatchResponse,
 )
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 
 @router.get("/recent")
 async def get_recent_matches(
-    limit: int = 20,
+    limit: int = Query(20, ge=1, le=100),
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
     """Retrieve the most recently completed matches."""
@@ -43,7 +43,9 @@ async def get_recent_matches(
 
 
 @router.get("/{match_id}")
-async def get_match(match_id: int, conn=Depends(get_conn)) -> MatchResponse:
+async def get_match(
+    match_id: int = Path(ge=1, le=2_147_483_647), conn=Depends(get_conn)
+) -> MatchResponse:
     """Retrieve details for a specific match by ID."""
     row = conn.execute(
         text("""

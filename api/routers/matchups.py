@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from db import get_conn
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from models.responses import (
     HeadToHeadResponse,
     MatchResponse,
@@ -24,8 +24,8 @@ def expected_score(rating_one: float, rating_two: float) -> float:
 
 @router.get("/h2h")
 async def get_h2h_record(
-    player_id: int,
-    opponent_id: int,
+    player_id: int = Query(ge=1, le=2_147_483_647),
+    opponent_id: int = Query(ge=1, le=2_147_483_647),
     surface: Surface = Surface.all,
     conn=Depends(get_conn),
 ) -> HeadToHeadResponse:
@@ -53,8 +53,8 @@ async def get_h2h_record(
 
 @router.get("/prediction")
 async def get_matchup_prediction(
-    player_id: int,
-    opponent_id: int,
+    player_id: int = Query(ge=1, le=2_147_483_647),
+    opponent_id: int = Query(ge=1, le=2_147_483_647),
     surface: Surface = Surface.all,
     conn=Depends(get_conn),
 ) -> MatchupPredictionResponse:
@@ -215,8 +215,8 @@ async def get_player_matchup_detail(
 
 @router.get("/detailed")
 async def get_matchup_details(
-    player_id: int,
-    opponent_id: int,
+    player_id: int = Query(ge=1, le=2_147_483_647),
+    opponent_id: int = Query(ge=1, le=2_147_483_647),
     surface: Surface = Surface.all,
     conn=Depends(get_conn),
 ) -> MatchupDetailResponse:
