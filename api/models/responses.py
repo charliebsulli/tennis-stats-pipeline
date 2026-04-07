@@ -142,3 +142,23 @@ class EloRankingEntry(BaseModel):
     surface: Surface
     elo: float
     rank: int
+
+
+class HeadToHeadResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    opponent_id: int
+    surface: Surface
+    wins: int
+    losses: int
+    matches_played: int
+
+
+class MatchupPredictionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    opponent_id: int
+    surface: Surface
+    player_elo: float
+    opponent_elo: float
+    prediction: RoundedFloat
