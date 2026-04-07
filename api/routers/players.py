@@ -1,7 +1,13 @@
+from typing import List
+
 from db import get_conn
 from fastapi import APIRouter, Depends, HTTPException
 from models.responses import (
+    EloHistoryEntry,
+    EloResponse,
+    MatchResponse,
     Player,
+    PlayerFormResponse,
     PlayerStatsResponse,
     ReturnStats,
     ServeStats,
@@ -10,6 +16,22 @@ from models.responses import (
 from sqlalchemy import text
 
 router = APIRouter(prefix="/players")
+
+
+@router.get("/search")
+async def search_players(name: str, conn=Depends(get_conn)) -> List[Player]:
+    rows = conn.execute(
+        text("""
+        SELECT player_id, name, nationality, hand
+        FROM players
+        WHERE name ILIKE :name
+        ORDER BY name
+        LIMIT 20
+    """),
+        {"name": f"%{name}%"},
+    ).fetchall()
+
+    return [Player.model_validate(row) for row in rows]
 
 
 @router.get("/{player_id}")
@@ -31,7 +53,10 @@ async def get_player(player_id: int, conn=Depends(get_conn)) -> Player:
 
 @router.get("/{player_id}/stats")
 async def get_player_stats(
-    player_id: int, surface: Surface = all, season: int = 0, conn=Depends(get_conn)
+    player_id: int,
+    surface: Surface = Surface.all,
+    season: int = 0,
+    conn=Depends(get_conn),
 ) -> PlayerStatsResponse:
     row = conn.execute(
         text("""
@@ -116,3 +141,164 @@ async def get_player_stats(
         serve=ServeStats.model_validate(row),
         return_=ReturnStats.model_validate(row),
     )
+
+
+@router.get("/{player_id}/elo")
+async def get_player_elo(
+    player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
+) -> EloResponse:
+    query = ""
+    if surface is Surface.all:
+        query += """
+        WITH latest_ratings AS (
+            SELECT DISTINCT ON (e.player_id)
+                e.player_id,
+                e.elo_after AS elo
+            FROM elo_history AS e
+            JOIN matches AS m ON e.match_id = m.match_id
+            WHERE e.surface = :surface AND e.match_date >= NOW() - INTERVAL '1 year'
+            ORDER BY e.player_id, e.match_date DESC, m.round_int DESC
+        ),
+        """
+    else:
+        query += """
+        WITH latest_ratings AS (
+            SELECT DISTINCT ON (e.player_id)
+                e.player_id,
+                e.averaged_surface_elo AS elo
+            FROM averaged_surface_elo_history AS e
+            JOIN matches AS m ON e.match_id = m.match_id
+            WHERE e.surface = :surface AND e.match_date >= NOW() - INTERVAL '1 year'
+            ORDER BY e.player_id, e.match_date DESC, m.round_int DESC
+        ),
+        """
+    row = conn.execute(
+        text(
+            query
+            + """
+        ranked_ratings AS (
+            SELECT
+                player_id,
+                elo,
+                RANK() OVER (ORDER BY elo DESC) AS rank
+            FROM latest_ratings
+        )
+        SELECT player_id, elo, rank
+        FROM ranked_ratings
+        WHERE player_id = :player_id
+        """
+        ),
+        {"player_id": player_id, "surface": surface.value},
+    ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Elo ranking not found")
+
+    return EloResponse(
+        player_id=row.player_id,
+        surface=surface,
+        elo=row.elo,
+        rank=row.rank,
+    )
+
+
+@router.get(
+    "/{player_id}/elo/history"
+)  # TODO history can look ambiguous since multiple matches w/ same date in old data
+async def get_player_elo_history(
+    player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
+) -> List[EloHistoryEntry]:
+    query = ""
+    if surface is Surface.all:
+        query += """
+        SELECT
+            e.match_date AS date,
+            e.surface,
+            e.elo_after AS elo
+        FROM elo_history AS e
+        """
+    else:
+        query += """
+        SELECT
+            e.match_date as date,
+            e.surface,
+            e.averaged_surface_elo as elo
+        FROM averaged_surface_elo_history as e
+        """
+    rows = conn.execute(
+        text(
+            query
+            + """
+        WHERE e.player_id = :player_id
+        AND e.surface = :surface
+        ORDER BY e.match_date DESC, e.match_id DESC
+        """
+        ),
+        {"player_id": player_id, "surface": surface.value},
+    ).fetchall()
+
+    return [EloHistoryEntry.model_validate(row) for row in rows]
+
+
+@router.get("/{player_id}/form")
+async def get_player_form(
+    player_id: int, surface: Surface = Surface.all, conn=Depends(get_conn)
+) -> PlayerFormResponse:
+    row = conn.execute(
+        text("""
+        SELECT
+            player_id,
+            surface,
+            matches_total,
+            won,
+            weighted_form
+        FROM player_form
+        WHERE player_id = :player_id
+        AND surface = :surface
+        """),
+        {"player_id": player_id, "surface": surface.value},
+    ).fetchone()
+
+    if row is None:
+        raise HTTPException(status_code=404, detail="Form data not found")
+
+    return PlayerFormResponse.model_validate(row)
+
+
+@router.get("/{player_id}/matches")
+async def get_player_matches(
+    player_id: int,
+    surface: Surface = Surface.all,
+    limit: int = 20,
+    conn=Depends(get_conn),
+) -> List[MatchResponse]:
+    query = """
+        SELECT
+            m.match_id,
+            m.tournament_id,
+            t.name AS tournament_name,
+            m.match_date,
+            t.surface,
+            m.round,
+            m.winner_id,
+            pw.name AS winner_name,
+            m.loser_id,
+            pl.name AS loser_name,
+            m.score
+        FROM matches AS m
+        JOIN tournaments AS t ON m.tournament_id = t.tournament_id
+        JOIN players AS pw ON m.winner_id = pw.player_id
+        JOIN players AS pl ON m.loser_id = pl.player_id
+        WHERE (m.winner_id = :player_id OR m.loser_id = :player_id)
+    """
+    params = {"player_id": player_id, "limit": limit}
+
+    if surface != Surface.all:
+        query += " AND t.surface = :surface"
+        params["surface"] = surface.value
+
+    query += " ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit"
+
+    rows = conn.execute(text(query), params).fetchall()
+
+    return [MatchResponse.model_validate(row) for row in rows]

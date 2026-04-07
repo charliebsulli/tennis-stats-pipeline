@@ -1,5 +1,6 @@
+from datetime import date
 from enum import Enum
-from typing import Annotated, Optional
+from typing import Annotated, List, Optional
 
 from pydantic import AfterValidator, BaseModel, ConfigDict
 
@@ -93,3 +94,42 @@ class PlayerStatsResponse(BaseModel):
     return_: ReturnStats
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class EloResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    surface: Surface
+    elo: float
+    rank: int
+
+
+class EloHistoryEntry(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    date: date
+    surface: Surface
+    elo: float
+
+
+class PlayerFormResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    surface: Surface
+    matches_total: int
+    won: int
+    weighted_form: RoundedFloat
+
+
+class MatchResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    match_id: int
+    tournament_id: str
+    tournament_name: str
+    match_date: date
+    surface: Surface
+    round: str
+    winner_id: int
+    winner_name: str
+    loser_id: int
+    loser_name: str
+    score: str
