@@ -159,6 +159,37 @@ class MatchupPredictionResponse(BaseModel):
     player_id: int
     opponent_id: int
     surface: Surface
-    player_elo: float
-    opponent_elo: float
-    prediction: RoundedFloat
+    player_elo: Optional[float]
+    opponent_elo: Optional[float]
+    prediction: Optional[RoundedFloat]
+
+
+class WinLossRecord(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    matches_played: int
+    won: int
+    lost: int
+    win_pct: RoundedFloat
+
+
+class MatchupPlayerDetail(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player_id: int
+    name: str
+    nationality: str
+    hand: str
+    elo: Optional[float]
+    rank: Optional[int]
+    form: PlayerFormResponse
+    season_record: WinLossRecord
+    career_record: WinLossRecord
+
+
+class MatchupDetailResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    player: MatchupPlayerDetail
+    opponent: MatchupPlayerDetail
+    h2h: HeadToHeadResponse
+    prediction: MatchupPredictionResponse
+    match_history: List[MatchResponse]
+    surface: Surface
