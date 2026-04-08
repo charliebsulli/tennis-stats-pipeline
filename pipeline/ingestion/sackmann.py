@@ -29,7 +29,7 @@ def load_from_csv(conn: Connection):
         for csv_file in sorted(files):
             df = pd.read_csv(csv_file)
             df["tourney_date"] = df["tourney_date"].map(
-                lambda x: date.strptime(str(x), "%Y%m%d")
+                lambda x: datetime.strptime(str(x), "%Y%m%d").date()
             )
             df["source"] = "sackmann"
             df["time_added"] = datetime.now(timezone.utc).isoformat()
