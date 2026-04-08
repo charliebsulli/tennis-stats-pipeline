@@ -3,11 +3,10 @@ import logging
 from datetime import date, timedelta
 
 import pandas as pd
+from pipeline.db.db_connection import engine
+from pipeline.ingestion.ingest import ingest_daily
+from pipeline.logging_config import setup_logging
 from sqlalchemy import text
-
-from db.db_connection import engine
-from ingestion.ingest import ingest_daily
-from logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 

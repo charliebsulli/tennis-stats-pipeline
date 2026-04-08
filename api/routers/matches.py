@@ -1,10 +1,8 @@
 from typing import List
 
-from db import get_conn
+from api.db import get_conn
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from models.responses import (
-    MatchResponse,
-)
+from api.models.responses import MatchResponse
 from sqlalchemy import text
 
 router = APIRouter(prefix="/matches", tags=["matches"])

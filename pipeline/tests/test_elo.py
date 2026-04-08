@@ -1,6 +1,5 @@
 import pytest
-
-from aggregate.elo import expected_score
+from pipeline.aggregate.elo import expected_score
 
 
 def test_expected_equal():

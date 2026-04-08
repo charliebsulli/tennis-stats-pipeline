@@ -1,18 +1,10 @@
 from typing import List
 
-from db import get_conn
+from api.db import get_conn
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from models.responses import (
-    EloHistoryEntry,
-    EloResponse,
-    MatchResponse,
-    Player,
-    PlayerFormResponse,
-    PlayerStatsResponse,
-    ReturnStats,
-    ServeStats,
-    Surface,
-)
+from api.models.responses import (EloHistoryEntry, EloResponse, MatchResponse,
+                              Player, PlayerFormResponse, PlayerStatsResponse,
+                              ReturnStats, ServeStats, Surface)
 from sqlalchemy import text
 
 router = APIRouter(prefix="/players", tags=["players"])

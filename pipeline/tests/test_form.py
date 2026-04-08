@@ -2,8 +2,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 import pytest
-
-from aggregate.form import find_weighted_form
+from pipeline.aggregate.form import find_weighted_form
 
 
 def test_weighted_form_all_wins():

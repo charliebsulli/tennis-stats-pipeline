@@ -1,5 +1,5 @@
-from transform.normalize import ROUND_ORDER
-from transform.player_id_helper import normalize_name
+from pipeline.transform.normalize import ROUND_ORDER
+from pipeline.transform.player_id_helper import normalize_name
 
 
 def test_normalize_accents():

@@ -1,12 +1,9 @@
 from datetime import date, datetime, timezone
 from typing import List
 
-from db import get_conn
+from api.db import get_conn
 from fastapi import APIRouter, Depends
-from models.responses import (
-    EloRankingEntry,
-    Surface,
-)
+from api.models.responses import EloRankingEntry, Surface
 from sqlalchemy import text
 
 router = APIRouter(prefix="/rankings", tags=["rankings"])
