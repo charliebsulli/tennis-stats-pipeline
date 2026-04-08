@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from routers import matches, matchups, players, rankings
+from api.routers import matches, matchups, players, rankings
 
 app = FastAPI(
     title="Tennis Stats API",

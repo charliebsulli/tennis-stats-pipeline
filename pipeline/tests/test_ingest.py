@@ -1,4 +1,4 @@
-from ingestion.ingest import compute_score
+from pipeline.ingestion.ingest import compute_score
 
 
 def test_compute_score_three_sets():

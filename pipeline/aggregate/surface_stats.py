@@ -1,8 +1,7 @@
 import logging
 
+from pipeline.db.db_connection import engine
 from sqlalchemy import text
-
-from db.db_connection import engine
 
 logger = logging.getLogger(__name__)
 

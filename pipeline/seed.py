@@ -1,15 +1,14 @@
 import logging
 
+from pipeline.aggregate.elo import update_elo
+from pipeline.aggregate.form import compute_form
+from pipeline.aggregate.head_to_head import compute_head_to_head
+from pipeline.aggregate.surface_stats import compute_surface_stats
+from pipeline.db.db_connection import engine
+from pipeline.ingestion.sackmann import load_from_csv
+from pipeline.logging_config import setup_logging
 from sqlalchemy import text
-
-from aggregate.elo import update_elo
-from aggregate.form import compute_form
-from aggregate.head_to_head import compute_head_to_head
-from aggregate.surface_stats import compute_surface_stats
-from db.db_connection import engine
-from ingestion.sackmann import load_from_csv
-from logging_config import setup_logging
-from transform.transform import transform_raw_matches
+from pipeline.transform.transform import transform_raw_matches
 
 logger = logging.getLogger(__name__)
 

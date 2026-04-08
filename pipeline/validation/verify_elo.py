@@ -1,7 +1,6 @@
 import pandas as pd
+from pipeline.db.db_connection import engine
 from sqlalchemy import text
-
-from db.db_connection import engine
 
 
 def evaluate_elo_accuracy(start_date: str, end_date: str, surface: str = "ALL") -> None:

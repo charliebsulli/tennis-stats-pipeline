@@ -2,13 +2,13 @@ import argparse
 import logging
 from datetime import date, timedelta
 
-from aggregate.elo import update_elo
-from aggregate.form import compute_form
-from aggregate.head_to_head import compute_head_to_head
-from aggregate.surface_stats import compute_surface_stats
-from ingestion.ingest import ingest_daily
-from logging_config import setup_logging
-from transform.transform import transform_raw_matches
+from pipeline.aggregate.elo import update_elo
+from pipeline.aggregate.form import compute_form
+from pipeline.aggregate.head_to_head import compute_head_to_head
+from pipeline.aggregate.surface_stats import compute_surface_stats
+from pipeline.ingestion.ingest import ingest_daily
+from pipeline.logging_config import setup_logging
+from pipeline.transform.transform import transform_raw_matches
 
 logger = logging.getLogger(__name__)
 

@@ -1,17 +1,11 @@
 from datetime import datetime, timezone
 
-from db import get_conn
+from api.db import get_conn
 from fastapi import APIRouter, Depends, HTTPException, Query
-from models.responses import (
-    HeadToHeadResponse,
-    MatchResponse,
-    MatchupDetailResponse,
-    MatchupPlayerDetail,
-    MatchupPredictionResponse,
-    PlayerFormResponse,
-    Surface,
-    WinLossRecord,
-)
+from api.models.responses import (HeadToHeadResponse, MatchResponse,
+                              MatchupDetailResponse, MatchupPlayerDetail,
+                              MatchupPredictionResponse, PlayerFormResponse,
+                              Surface, WinLossRecord)
 from sqlalchemy import text
 
 router = APIRouter(prefix="/matchups", tags=["matchups"])
