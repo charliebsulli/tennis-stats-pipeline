@@ -37,20 +37,33 @@ Aggregate Layer — ELO history, form scores, H2H records, surface stats
        ↓
 REST API (FastAPI)
 
-## Key engineering decisions
+## Engineering Decisions
 
 ### Schema
 
-### Player ID resolution (or more generally, reconciliation of the two data sources)
+All of the raw match data is stored in the database before transforming it into normalized match, player, and tournament data. This makes it easier to identify the source of errors in the transformed tables, whose records are linked by match ID to the raw data. It also eases the process of normalizing and reconciling the differences between the two data sources, since a large number of records from each source are saved. Without storing the raw data, identifying the source of errors in data sourced from the API would be more difficult, since that data would have to be fetched again for analysis.
 
-### Incremental ingestion
 
-- what am i doing to make sure integrity of the data is preserved as new data is added
-- how am I updating the stats to be more efficient than just recomputing, and ensure they stay up to date
+### Player ID Resolution
 
-### Surface ELO
+Players from the API must be linked to the corresponding players in the historical dataset to avoid duplicate players and ensure accurate statistics, continuous match history, and correct Elo rating history for each player. Since the CSV data and API use different systems for player IDs, players' names are used to match player IDs from the API to player IDs in the historical data. Since there are some differences in how names are formatted, names are normalized to remove hypens, accents, and capitalization before being fuzzy matched to names which are already in the players table (which uses the ID from the historical dataset as the canonical player ID). Once a match is made, the API player ID and CSV player ID are stored in a lookup table to avoid repeated fuzzy matching.
 
-- explain how I designed the ELO system and why there are two sets of surface ratings
+### Incremental Ingestion
+
+When new data is ingested, it is important to avoid duplicate records and only recompute stats which need to be updated in order to maintain data integrity and pipeline efficiency. Here is how repeated runs of the pipeline are made safe from errors:
+- Match data ingested from the API is only inserted into the raw data table when the API match ID is not already present
+- The transform step only processes matches from the raw table whose match ID is not in the normalized matches table, and only new players and tournaments are added
+- Per-player stats records are marked with a timestamp and are only updated if new matches for that player have been ingested since the the record was last updated
+- Elo ratings are recomputed from the oldest of the matches ingested in any pipeline run: if data is missing for a day and ingested later, Elo ratings will account for that
+
+### Surface Elo
+
+Surface-specific Elo ratings are used to rank players since player performance differs meaningfully between surfaces. Each variation of the Elo algorithm was run from the earliest match (1968), with 2023 used as a dev set and 2024 as a held-out test set. The highest match prediction accuracy used the following configuration:
+- Players start at 1500 Elo
+- k-factor is a constant 32
+- Completely separate Elo ratings are kept per-surface, but averaged (50/50) with overall ratings to rank players and predict match outcomes
+
+Surface-specific ratings are averaged with overall ratings since a strong correlation is expected between overall Elo and performance on each surface. When only surface-specific ratings are used on that surface, prediction accuracy drops significantly.
 
 ## API endpoints
 
