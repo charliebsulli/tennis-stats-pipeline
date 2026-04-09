@@ -1,10 +1,11 @@
 from datetime import date, datetime, timezone
 from typing import List
 
-from api.db import get_conn
 from fastapi import APIRouter, Depends
-from api.models.responses import EloRankingEntry, Surface
 from sqlalchemy import text
+
+from api.db import get_conn
+from api.models.responses import EloRankingEntry, Surface
 
 router = APIRouter(prefix="/rankings", tags=["rankings"])
 
@@ -29,6 +30,7 @@ async def get_elo_rankings(
                     WHERE
                         e.surface = 'ALL'
                         AND m.match_date >= :date - INTERVAL '1 year'
+                        AND m.match_date <= :date
                     ORDER BY
                         e.player_id,
                         m.match_date DESC,
@@ -46,6 +48,7 @@ async def get_elo_rankings(
                     WHERE
                         e.surface = :surface
                         AND m.match_date >= :date - INTERVAL '1 year'
+                        AND m.match_date <= :date
                     ORDER BY
                         e.player_id,
                         m.match_date DESC,
