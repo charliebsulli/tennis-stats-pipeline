@@ -4,11 +4,14 @@ from datetime import date, datetime, timezone
 
 import pandas as pd
 import requests
+from psycopg2.extras import execute_values
+
 from pipeline.constants import ATP_CATEGORY_ID, CHALLENGER_CATEGORY_ID
 from pipeline.db.db_connection import engine
-from pipeline.ingestion.api_calls import (get_match_stats_by_id,
-                                 get_matches_by_category_and_date)
-from psycopg2.extras import execute_values
+from pipeline.ingestion.api_calls import (
+    get_match_stats_by_id,
+    get_matches_by_category_and_date,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -191,6 +194,12 @@ def fill_match_stats(df):
                 )
         logger.info(f"Filled detailed stats for match {row['rapidapi_match_id']}")
         time.sleep(0.2)  # to avoid hitting rate limits
+
+    if len(stats_rows) == 0:
+        logger.warning(
+            "No detailed stats found for any match, inserting without detailed stats."
+        )
+        return df
     stats_df = pd.DataFrame(stats_rows)
     return pd.merge(df, stats_df, on="rapidapi_match_id", how="left")
 
