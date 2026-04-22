@@ -24,8 +24,8 @@ export const api = {
       fetch(`${API_BASE_URL}/players/${id}/elo?surface=${surface}`).then(handleResponse),
     getForm: (id: number, surface: Surface = "ALL"): Promise<PlayerForm> =>
       fetch(`${API_BASE_URL}/players/${id}/form?surface=${surface}`).then(handleResponse),
-    getStats: (id: number, surface: Surface = "ALL"): Promise<PlayerStats> =>
-      fetch(`${API_BASE_URL}/players/${id}/stats?surface=${surface}`).then(handleResponse),
+    getStats: (id: number, surface: Surface = "ALL", season: number = 0): Promise<PlayerStats> =>
+      fetch(`${API_BASE_URL}/players/${id}/stats?surface=${surface}&season=${season}`).then(handleResponse),
     getEloHistory: (id: number, surface: Surface = "ALL"): Promise<EloHistoryEntry[]> =>
       fetch(`${API_BASE_URL}/players/${id}/elo/history?surface=${surface}`).then(handleResponse),
     getMatches: (id: number, limit = 20): Promise<Match[]> =>
