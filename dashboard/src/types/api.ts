@@ -28,6 +28,13 @@ export interface WinLossRecord {
   win_pct: number
 }
 
+export interface EloResponse {
+  player_id: number
+  surface: Surface
+  elo: number
+  rank: number
+}
+
 export interface PlayerForm {
   player_id: number
   surface: Surface
