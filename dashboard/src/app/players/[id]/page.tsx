@@ -6,6 +6,8 @@ import { api } from "@/lib/api"
 import { Skeleton } from "@/components/ui/skeleton"
 import { PlayerHeader } from "@/components/player-header"
 import { PlayerStatsCard } from "@/components/player-stats-card"
+import { PlayerEloChart } from "@/components/player-elo-chart"
+import { MatchHistory } from "@/components/match-history"
 
 export default function PlayerProfile() {
   const params = useParams()
@@ -29,6 +31,12 @@ export default function PlayerProfile() {
     enabled: !!playerId,
   })
 
+  const matchesQuery = useQuery({
+    queryKey: ["player", playerId, "matches"],
+    queryFn: () => api.players.getMatches(playerId),
+    enabled: !!playerId,
+  })
+
   if (playerQuery.isLoading) {
     return (
       <div className="py-8 space-y-6">
@@ -37,6 +45,7 @@ export default function PlayerProfile() {
           <Skeleton className="h-[400px] w-full rounded-xl" />
           <Skeleton className="h-[400px] w-full rounded-xl" />
         </div>
+        <Skeleton className="h-[500px] w-full rounded-xl" />
       </div>
     )
   }
@@ -65,10 +74,21 @@ export default function PlayerProfile() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <PlayerStatsCard playerId={playerId} />
-        <div className="space-y-6">
-           {/* Placeholder for Recent Matches or ELO Chart */}
-        </div>
+        <PlayerEloChart playerId={playerId} />
       </div>
+
+      {matchesQuery.isLoading ? (
+        <Skeleton className="h-[500px] w-full rounded-xl" />
+      ) : matchesQuery.error ? (
+        <div className="text-center text-red-500 py-10 border rounded-xl bg-muted/20">
+          Error loading match history.
+        </div>
+      ) : (
+        <MatchHistory 
+          matches={matchesQuery.data || []} 
+          currentPlayerId={playerId} 
+        />
+      )}
     </div>
   )
 }
