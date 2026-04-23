@@ -1,11 +1,20 @@
 from typing import List
 
-from api.db import get_conn
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from api.models.responses import (EloHistoryEntry, EloResponse, MatchResponse,
-                              Player, PlayerFormResponse, PlayerStatsResponse,
-                              ReturnStats, ServeStats, Surface)
 from sqlalchemy import text
+
+from api.db import get_conn
+from api.models.responses import (
+    EloHistoryEntry,
+    EloResponse,
+    MatchResponse,
+    Player,
+    PlayerFormResponse,
+    PlayerStatsResponse,
+    ReturnStats,
+    ServeStats,
+    Surface,
+)
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -138,6 +147,27 @@ async def get_player_stats(
         serve=ServeStats.model_validate(row),
         return_=ReturnStats.model_validate(row),
     )
+
+
+@router.get("/{player_id}/stats/seasons")
+async def get_player_stats_seasons(
+    player_id: int = Path(ge=1, le=2_147_483_647),
+    surface: Surface = Surface.all,
+    conn=Depends(get_conn),
+) -> List[int]:
+    """Get a list of seasons for which we have stats for a given player and surface."""
+    rows = conn.execute(
+        text("""
+        SELECT DISTINCT season
+        FROM player_surface_stats
+        WHERE player_id = :player_id
+        AND surface = :surface
+        ORDER BY season DESC
+        """),
+        {"player_id": player_id, "surface": surface.value},
+    ).fetchall()
+
+    return [row.season for row in rows]
 
 
 @router.get("/{player_id}/elo")
