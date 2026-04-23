@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Player, EloResponse, PlayerForm } from "@/types/api"
+import { EloResponse, Player, PlayerForm } from "@/types/api"
 
 interface PlayerHeaderProps {
   player: Player
@@ -45,13 +45,13 @@ export function PlayerHeader({
             <>
               <div className="rounded-lg bg-muted p-3 text-center">
                 <p className="text-2xl font-medium">#{elo?.rank}</p>
-                <p className="mt-1 text-xs text-muted-foreground">ELO Rank</p>
+                <p className="mt-1 text-xs text-muted-foreground">Elo Rank</p>
               </div>
               <div className="rounded-lg bg-muted p-3 text-center">
                 <p className="text-2xl font-medium">
                   {Math.round(elo?.elo ?? 0)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">ELO Rating</p>
+                <p className="mt-1 text-xs text-muted-foreground">Elo Rating</p>
               </div>
             </>
           )}
@@ -71,7 +71,7 @@ export function PlayerHeader({
                 <p className="text-2xl font-medium">
                   {Math.round((form?.weighted_form ?? 0) * 100)}
                 </p>
-                <p className="mt-1 text-xs text-muted-foreground">Form Score</p>
+                <p className="mt-1 text-xs text-muted-foreground">Form (90d)</p>
               </div>
               <div className="rounded-lg bg-muted p-3 text-center">
                 <p className="text-2xl font-medium">

@@ -1,4 +1,4 @@
-import { EloRankingEntry, Surface, Player, PlayerStats, EloHistoryEntry, Match, EloResponse, PlayerForm } from "@/types/api"
+import { EloHistoryEntry, EloRankingEntry, EloResponse, Match, Player, PlayerForm, PlayerStats, Surface } from "@/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -26,6 +26,8 @@ export const api = {
       fetch(`${API_BASE_URL}/players/${id}/form?surface=${surface}`).then(handleResponse),
     getStats: (id: number, surface: Surface = "ALL", season: number = 0): Promise<PlayerStats> =>
       fetch(`${API_BASE_URL}/players/${id}/stats?surface=${surface}&season=${season}`).then(handleResponse),
+    getStatsSeasons: (id: number, surface: Surface = "ALL"): Promise<number[]> =>
+      fetch(`${API_BASE_URL}/players/${id}/stats/seasons?surface=${surface}`).then(handleResponse),
     getEloHistory: (id: number, surface: Surface = "ALL"): Promise<EloHistoryEntry[]> =>
       fetch(`${API_BASE_URL}/players/${id}/elo/history?surface=${surface}`).then(handleResponse),
     getMatches: (id: number, limit = 20): Promise<Match[]> =>

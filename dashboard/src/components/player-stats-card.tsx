@@ -1,15 +1,10 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@/lib/api"
-import { Surface } from "@/types/api"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@/components/ui/card"
 import {
   Select,
@@ -18,19 +13,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/lib/api"
+import { Surface } from "@/types/api"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 interface PlayerStatsCardProps {
   playerId: number
 }
 
 const surfaces: Surface[] = ["ALL", "Hard", "Clay", "Grass"]
-const years = [0, 2025, 2024] // 0 represents 'Career' in this pipeline
 
 export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
   const [surface, setSurface] = useState<Surface>("ALL")
   const [season, setSeason] = useState<number>(0)
+
+  const statsSeasonsQuery = useQuery({
+    queryKey: ["player", playerId, "stats", "seasons", surface],
+    queryFn: () => api.players.getStatsSeasons(playerId, surface),
+    enabled: !!playerId,
+  })
 
   const { data: stats, isLoading, error } = useQuery({
     queryKey: ["player", playerId, "stats", surface, season],
@@ -44,26 +48,67 @@ export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
   const formatVal = (val: number | undefined) => 
     val !== undefined ? val.toFixed(2) : "N/A"
 
+  if (statsSeasonsQuery.isLoading) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="text-xl">Stats</CardTitle>
+            {/* <CardDescription>Performance metrics by surface</CardDescription> */}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-32 w-full" />
+          <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (statsSeasonsQuery.error) {
+    return (
+      <Card className="h-full">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="text-xl">Stats</CardTitle>
+            {/* <CardDescription>Performance metrics by surface</CardDescription> */}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="py-10 text-center text-sm text-red-500">
+            No seasons found for this player.
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  const years = statsSeasonsQuery.data || [0]
+  if (!years.includes(season)) {
+    setSeason(years[years.length - 1])
+  }
+
   return (
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <div>
-          <CardTitle className="text-xl">Match Statistics</CardTitle>
-          <CardDescription>Performance metrics by surface</CardDescription>
+          <CardTitle className="text-xl">Stats</CardTitle>
+          {/* <CardDescription>Performance metrics by surface</CardDescription> */}
         </div>
         <div className="flex gap-2">
           <Select value={surface} onValueChange={(v) => setSurface(v as Surface)}>
-            <SelectTrigger className="w-[100px]">
+            <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Surface" />
             </SelectTrigger>
             <SelectContent>
               {surfaces.map((s) => (
-                <SelectItem key={s} value={s}>{s}</SelectItem>
+                <SelectItem key={s} value={s}>{s === "ALL" ? "All Surfaces" : s}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={season.toString()} onValueChange={(v) => setSeason(parseInt(v))}>
-            <SelectTrigger className="w-[110px]">
+            <SelectTrigger className="w-[120px]">
               <SelectValue placeholder="Season" />
             </SelectTrigger>
             <SelectContent>
@@ -99,12 +144,12 @@ export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
             <div className="space-y-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Service Stats</h4>
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                <StatRow label="1st Serve In" value={formatPct(stats?.serve.first_serve_pct)} />
-                <StatRow label="1st Srv Points Won" value={formatPct(stats?.serve.first_serve_points_won_pct)} />
-                <StatRow label="2nd Srv Points Won" value={formatPct(stats?.serve.second_serve_points_won_pct)} />
-                <StatRow label="Srv Games Won" value={formatPct(stats?.serve.service_games_won_pct)} />
+                <StatRow label="1st Serve" value={formatPct(stats?.serve.first_serve_pct)} />
+                <StatRow label="1st Serve Points Won" value={formatPct(stats?.serve.first_serve_points_won_pct)} />
+                <StatRow label="2nd Serve Points Won" value={formatPct(stats?.serve.second_serve_points_won_pct)} />
+                <StatRow label="Service Games Won" value={formatPct(stats?.serve.service_games_won_pct)} />
                 <StatRow label="Aces / Match" value={formatVal(stats?.serve.aces_per_match)} />
-                <StatRow label="DFs / Match" value={formatVal(stats?.serve.double_faults_per_match)} />
+                <StatRow label="Double Faults / Match" value={formatVal(stats?.serve.double_faults_per_match)} />
               </div>
             </div>
 
@@ -113,10 +158,10 @@ export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
             <div className="space-y-3">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Return Stats</h4>
               <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-                <StatRow label="1st Srv Ret Won" value={formatPct(stats?.return_.first_serve_return_points_won_pct)} />
-                <StatRow label="2nd Srv Ret Won" value={formatPct(stats?.return_.second_serve_return_points_won_pct)} />
-                <StatRow label="Ret Games Won" value={formatPct(stats?.return_.return_games_won_pct)} />
-                <StatRow label="BP Converted" value={formatPct(stats?.return_.bp_conversion_pct)} />
+                <StatRow label="1st Serve Return Points Won" value={formatPct(stats?.return_.first_serve_return_points_won_pct)} />
+                <StatRow label="2nd Serve Return Points Won" value={formatPct(stats?.return_.second_serve_return_points_won_pct)} />
+                <StatRow label="Return Games Won" value={formatPct(stats?.return_.return_games_won_pct)} />
+                <StatRow label="Break Points Converted" value={formatPct(stats?.return_.bp_conversion_pct)} />
               </div>
             </div>
           </div>
