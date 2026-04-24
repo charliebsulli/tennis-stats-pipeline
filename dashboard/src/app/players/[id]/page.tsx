@@ -1,13 +1,13 @@
 "use client"
 
-import { useParams } from "next/navigation"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@/lib/api"
-import { Skeleton } from "@/components/ui/skeleton"
+import { MatchHistory } from "@/components/match-history"
+import { PlayerEloChart } from "@/components/player-elo-chart"
 import { PlayerHeader } from "@/components/player-header"
 import { PlayerStatsCard } from "@/components/player-stats-card"
-import { PlayerEloChart } from "@/components/player-elo-chart"
-import { MatchHistory } from "@/components/match-history"
+import { Skeleton } from "@/components/ui/skeleton"
+import { api } from "@/lib/api"
+import { useQuery } from "@tanstack/react-query"
+import { useParams } from "next/navigation"
 
 export default function PlayerProfile() {
   const params = useParams()
@@ -77,18 +77,10 @@ export default function PlayerProfile() {
         <PlayerEloChart playerId={playerId} />
       </div>
 
-      {matchesQuery.isLoading ? (
-        <Skeleton className="h-[500px] w-full rounded-xl" />
-      ) : matchesQuery.error ? (
-        <div className="text-center text-red-500 py-10 border rounded-xl bg-muted/20">
-          Error loading match history.
-        </div>
-      ) : (
-        <MatchHistory 
-          matches={matchesQuery.data || []} 
-          currentPlayerId={playerId} 
-        />
-      )}
+      <MatchHistory 
+        playerId={playerId} 
+        title="Latest Results"
+      />
     </div>
   )
 }

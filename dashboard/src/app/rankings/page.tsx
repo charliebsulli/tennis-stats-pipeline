@@ -14,42 +14,61 @@ import { api } from "@/lib/api"
 import { Surface } from "@/types/api"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
+import { cn } from "@/lib/utils"
 
 const surfaces: Surface[] = ["ALL", "Hard", "Clay", "Grass"]
+const LIMIT = 100
 
 export default function RankingsPage() {
   const [surface, setSurface] = useState<Surface>("ALL")
+  const [page, setPage] = useState(0)
+
+  // Reset page when surface changes
+  useEffect(() => {
+    setPage(0)
+  }, [surface])
 
   const { data: rankings, isLoading, error } = useQuery({
-    queryKey: ["rankings", surface],
-    queryFn: () => api.rankings.get(surface),
+    queryKey: ["rankings", surface, page],
+    queryFn: () => api.rankings.get(surface, LIMIT, page * LIMIT),
   })
+
+  const hasNextPage = rankings && rankings.length === LIMIT
 
   return (
     <div className="flex flex-col gap-8 py-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">ELO Rankings</h1>
-        <p className="text-muted-foreground mt-2">
-          Current performance-based rankings for ATP players.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">ELO Rankings</h1>
+          <p className="text-muted-foreground mt-2">
+            Current performance-based rankings for ATP players.
+          </p>
+        </div>
+
+        <Tabs
+          defaultValue="ALL"
+          onValueChange={(value) => setSurface(value as Surface)}
+          className="w-full max-w-md"
+        >
+          <TabsList className="grid w-full grid-cols-4">
+            {surfaces.map((s) => (
+              <TabsTrigger key={s} value={s}>
+                {s === "ALL" ? "All" : s}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
       </div>
 
-      <Tabs
-        defaultValue="ALL"
-        onValueChange={(value) => setSurface(value as Surface)}
-        className="w-full"
-      >
-        <TabsList className="grid w-full max-w-md grid-cols-4">
-          {surfaces.map((s) => (
-            <TabsTrigger key={s} value={s}>
-              {s === "ALL" ? "All Surfaces" : s}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
-
-      <div className="rounded-md border bg-white">
+      <div className="rounded-md border bg-white overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
@@ -99,6 +118,36 @@ export default function RankingsPage() {
             )}
           </TableBody>
         </Table>
+
+        {!isLoading && !error && (rankings?.length || 0) > 0 && (
+          <div className="flex items-center justify-between border-t px-4 py-4">
+            <div className="text-sm text-muted-foreground">
+              Showing rankings {page * LIMIT + 1} - {page * LIMIT + (rankings?.length || 0)}
+            </div>
+            <Pagination className="mx-0 w-auto">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious 
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    className={cn(
+                      "cursor-pointer",
+                      page === 0 && "pointer-events-none opacity-50"
+                    )}
+                  />
+                </PaginationItem>
+                <PaginationItem>
+                  <PaginationNext 
+                    onClick={() => setPage(p => p + 1)}
+                    className={cn(
+                      "cursor-pointer",
+                      !hasNextPage && "pointer-events-none opacity-50"
+                    )}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          </div>
+        )}
       </div>
     </div>
   )

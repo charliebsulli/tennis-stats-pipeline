@@ -12,8 +12,8 @@ async function handleResponse<T>(response: Response): Promise<T> {
 
 export const api = {
   rankings: {
-    get: (surface: Surface = "ALL"): Promise<EloRankingEntry[]> =>
-      fetch(`${API_BASE_URL}/rankings/?surface=${surface}`).then(handleResponse),
+    get: (surface: Surface = "ALL", limit = 100, offset = 0): Promise<EloRankingEntry[]> =>
+      fetch(`${API_BASE_URL}/rankings/?surface=${surface}&limit=${limit}&offset=${offset}`).then(handleResponse),
   },
   players: {
     search: (name: string): Promise<Player[]> =>
@@ -30,8 +30,8 @@ export const api = {
       fetch(`${API_BASE_URL}/players/${id}/stats/seasons?surface=${surface}`).then(handleResponse),
     getEloHistory: (id: number, surface: Surface = "ALL"): Promise<EloHistoryEntry[]> =>
       fetch(`${API_BASE_URL}/players/${id}/elo/history?surface=${surface}`).then(handleResponse),
-    getMatches: (id: number, limit = 20): Promise<Match[]> =>
-      fetch(`${API_BASE_URL}/players/${id}/matches?limit=${limit}`).then(handleResponse),
+    getMatches: (id: number, limit = 20, offset = 0): Promise<Match[]> =>
+      fetch(`${API_BASE_URL}/players/${id}/matches?limit=${limit}&offset=${offset}`).then(handleResponse),
   },
   matchups: {
     getDetailed: (p1: number, p2: number, surface: Surface = "ALL") =>
