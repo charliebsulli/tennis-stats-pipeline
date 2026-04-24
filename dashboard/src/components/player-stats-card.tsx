@@ -48,44 +48,9 @@ export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
   const formatVal = (val: number | undefined) => 
     val !== undefined ? val.toFixed(2) : "N/A"
 
-  if (statsSeasonsQuery.isLoading) {
-    return (
-      <Card className="h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="text-xl">Stats</CardTitle>
-            {/* <CardDescription>Performance metrics by surface</CardDescription> */}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-20 w-full" />
-          <Skeleton className="h-32 w-full" />
-          <Skeleton className="h-32 w-full" />
-        </CardContent>
-      </Card>
-    )
-  }
+  const years = statsSeasonsQuery.data || []
 
-  if (statsSeasonsQuery.error) {
-    return (
-      <Card className="h-full">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-          <div>
-            <CardTitle className="text-xl">Stats</CardTitle>
-            {/* <CardDescription>Performance metrics by surface</CardDescription> */}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="py-10 text-center text-sm text-red-500">
-            No seasons found for this player.
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  const years = statsSeasonsQuery.data || [0]
-  if (!years.includes(season)) {
+  if (years.length != 0 && !years.includes(season)) {
     setSeason(years[years.length - 1])
   }
 
@@ -122,13 +87,13 @@ export function PlayerStatsCard({ playerId }: PlayerStatsCardProps) {
         </div>
       </CardHeader>
       <CardContent>
-        {isLoading ? (
+        {isLoading || statsSeasonsQuery.isLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-20 w-full" />
             <Skeleton className="h-32 w-full" />
             <Skeleton className="h-32 w-full" />
           </div>
-        ) : error ? (
+        ) : error || statsSeasonsQuery.error || years.length === 0 ? (
           <div className="py-10 text-center text-sm text-red-500">
             No stats found for this selection.
           </div>
