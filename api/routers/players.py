@@ -304,6 +304,7 @@ async def get_player_matches(
     player_id: int = Path(ge=1, le=2_147_483_647),
     surface: Surface = Surface.all,
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
     """Retrieve a list of recent matches for a specific player."""
@@ -326,13 +327,13 @@ async def get_player_matches(
         JOIN players AS pl ON m.loser_id = pl.player_id
         WHERE (m.winner_id = :player_id OR m.loser_id = :player_id)
     """
-    params = {"player_id": player_id, "limit": limit}
+    params = {"player_id": player_id, "limit": limit, "offset": offset}
 
     if surface != Surface.all:
         query += " AND t.surface = :surface"
         params["surface"] = surface.value
 
-    query += " ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit"
+    query += " ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit OFFSET :offset"
 
     rows = conn.execute(text(query), params).fetchall()
 

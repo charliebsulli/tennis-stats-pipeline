@@ -11,6 +11,7 @@ router = APIRouter(prefix="/matches", tags=["matches"])
 @router.get("/recent")
 async def get_recent_matches(
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
     """Retrieve the most recently completed matches."""
@@ -32,9 +33,10 @@ async def get_recent_matches(
         JOIN tournaments AS t ON m.tournament_id = t.tournament_id
         JOIN players AS pw ON m.winner_id = pw.player_id
         JOIN players AS pl ON m.loser_id = pl.player_id
-        ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit
+        ORDER BY m.match_date DESC, m.round_int DESC
+        LIMIT :limit OFFSET :offset
     """),
-        {"limit": limit},
+        {"limit": limit, "offset": offset},
     ).fetchall()
 
     return [MatchResponse.model_validate(row) for row in rows]
