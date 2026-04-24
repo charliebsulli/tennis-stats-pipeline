@@ -3,6 +3,7 @@
 import { MatchHistory } from "@/components/match-history"
 import { PlayerEloChart } from "@/components/player-elo-chart"
 import { PlayerHeader } from "@/components/player-header"
+import { PlayerSearch } from "@/components/player-search"
 import { PlayerStatsCard } from "@/components/player-stats-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { api } from "@/lib/api"
@@ -31,15 +32,12 @@ export default function PlayerProfile() {
     enabled: !!playerId,
   })
 
-  const matchesQuery = useQuery({
-    queryKey: ["player", playerId, "matches"],
-    queryFn: () => api.players.getMatches(playerId),
-    enabled: !!playerId,
-  })
-
   if (playerQuery.isLoading) {
     return (
       <div className="py-8 space-y-6">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-10 w-[300px]" />
+        </div>
         <Skeleton className="h-[280px] w-full rounded-xl" />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Skeleton className="h-[400px] w-full rounded-xl" />
@@ -62,6 +60,10 @@ export default function PlayerProfile() {
 
   return (
     <div className="py-8 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <PlayerSearch />
+      </div>
+
       <PlayerHeader 
         player={playerQuery.data} 
         elo={eloQuery.data}

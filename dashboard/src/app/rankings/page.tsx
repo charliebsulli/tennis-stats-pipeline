@@ -1,5 +1,12 @@
 "use client"
 
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Table,
@@ -11,18 +18,11 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import { Surface } from "@/types/api"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { useState, useEffect } from "react"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination"
-import { cn } from "@/lib/utils"
+import { useEffect, useState } from "react"
 
 const surfaces: Surface[] = ["ALL", "Hard", "Clay", "Grass"]
 const LIMIT = 100
@@ -47,7 +47,7 @@ export default function RankingsPage() {
     <div className="flex flex-col gap-8 py-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">ELO Rankings</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Elo Rankings</h1>
           <p className="text-muted-foreground mt-2">
             Current performance-based rankings for ATP players.
           </p>
@@ -61,7 +61,7 @@ export default function RankingsPage() {
           <TabsList className="grid w-full grid-cols-4">
             {surfaces.map((s) => (
               <TabsTrigger key={s} value={s}>
-                {s === "ALL" ? "All" : s}
+                {s === "ALL" ? "Overall" : s}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -74,7 +74,7 @@ export default function RankingsPage() {
             <TableRow>
               <TableHead className="w-[100px]">Rank</TableHead>
               <TableHead>Player</TableHead>
-              <TableHead className="text-right">ELO Rating</TableHead>
+              <TableHead className="text-right">Elo Rating</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

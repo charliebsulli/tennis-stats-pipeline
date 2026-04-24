@@ -8,6 +8,7 @@ import {
   navigationMenuTriggerStyle,
 } from "@/components/ui/navigation-menu"
 import Link from "next/link"
+import { PlayerSearch } from "./player-search"
 
 export function Navbar() {
   return (
@@ -20,7 +21,7 @@ export function Navbar() {
             </span>
           </Link>
         </div>
-        <NavigationMenu>
+        <NavigationMenu className="hidden md:flex">
           <NavigationMenuList>
             <NavigationMenuItem>
               <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
@@ -39,6 +40,9 @@ export function Navbar() {
             </NavigationMenuItem>
           </NavigationMenuList>
         </NavigationMenu>
+        <div className="ml-auto flex items-center space-x-4">
+          <PlayerSearch />
+        </div>
       </div>
     </header>
   )

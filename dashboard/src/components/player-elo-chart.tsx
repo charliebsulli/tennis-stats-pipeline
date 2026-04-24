@@ -77,7 +77,7 @@ export function PlayerEloChart({ playerId }: PlayerEloChartProps) {
     <Card className="h-full">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="space-y-1">
-          <CardTitle className="text-xl">ELO History</CardTitle>
+          <CardTitle className="text-xl">Elo History</CardTitle>
           <CardDescription>Overall rating progression over time</CardDescription>
         </div>
         {!isLoading && history && history.length > 0 && (
