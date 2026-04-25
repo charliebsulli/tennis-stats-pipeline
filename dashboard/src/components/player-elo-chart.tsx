@@ -129,7 +129,7 @@ export function PlayerEloChart({ playerId }: PlayerEloChartProps) {
                 <Tooltip 
                   contentStyle={{ backgroundColor: "#fff", borderRadius: "8px", border: "1px solid #e2e8f0" }}
                   labelStyle={{ fontWeight: "bold", marginBottom: "4px" }}
-                  formatter={(value: number) => [`${value}`, 'ELO']}
+                  formatter={(value: unknown) => [`${value}`, 'ELO']}
                   labelFormatter={(label) => `Date: ${label}`}
                 />
                 <Line

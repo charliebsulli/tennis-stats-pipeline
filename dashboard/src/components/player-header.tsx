@@ -14,8 +14,8 @@ interface PlayerHeaderProps {
   form?: PlayerForm
   eloLoading?: boolean
   formLoading?: boolean
-  eloError?: any
-  formError?: any
+  eloError?: unknown
+  formError?: unknown
 }
 
 export function PlayerHeader({
