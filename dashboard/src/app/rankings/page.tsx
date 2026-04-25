@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils"
 import { Surface } from "@/types/api"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 const surfaces: Surface[] = ["ALL", "Hard", "Clay", "Grass"]
 const LIMIT = 100
@@ -30,11 +30,6 @@ const LIMIT = 100
 export default function RankingsPage() {
   const [surface, setSurface] = useState<Surface>("ALL")
   const [page, setPage] = useState(0)
-
-  // Reset page when surface changes
-  useEffect(() => {
-    setPage(0)
-  }, [surface])
 
   const { data: rankings, isLoading, error } = useQuery({
     queryKey: ["rankings", surface, page],
@@ -55,7 +50,10 @@ export default function RankingsPage() {
 
         <Tabs
           defaultValue="ALL"
-          onValueChange={(value) => setSurface(value as Surface)}
+          onValueChange={(value) => {
+            setSurface(value as Surface)
+            setPage(0)
+          }}
           className="w-full max-w-md"
         >
           <TabsList className="grid w-full grid-cols-4">

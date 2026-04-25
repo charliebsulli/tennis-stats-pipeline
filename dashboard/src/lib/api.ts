@@ -13,28 +13,28 @@ async function handleResponse<T>(response: Response): Promise<T> {
 export const api = {
   rankings: {
     get: (surface: Surface = "ALL", limit = 100, offset = 0): Promise<EloRankingEntry[]> =>
-      fetch(`${API_BASE_URL}/rankings/?surface=${surface}&limit=${limit}&offset=${offset}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/rankings/?surface=${surface}&limit=${limit}&offset=${offset}`).then(res => handleResponse<EloRankingEntry[]>(res)),
   },
   players: {
     search: (name: string): Promise<Player[]> =>
-      fetch(`${API_BASE_URL}/players/search?name=${name}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/search?name=${name}`).then(res => handleResponse<Player[]>(res)),
     get: (id: number): Promise<Player> =>
-      fetch(`${API_BASE_URL}/players/${id}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}`).then(res => handleResponse<Player>(res)),
     getElo: (id: number, surface: Surface = "ALL"): Promise<EloResponse> =>
-      fetch(`${API_BASE_URL}/players/${id}/elo?surface=${surface}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/elo?surface=${surface}`).then(res => handleResponse<EloResponse>(res)),
     getForm: (id: number, surface: Surface = "ALL"): Promise<PlayerForm> =>
-      fetch(`${API_BASE_URL}/players/${id}/form?surface=${surface}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/form?surface=${surface}`).then(res => handleResponse<PlayerForm>(res)),
     getStats: (id: number, surface: Surface = "ALL", season: number = 0): Promise<PlayerStats> =>
-      fetch(`${API_BASE_URL}/players/${id}/stats?surface=${surface}&season=${season}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/stats?surface=${surface}&season=${season}`).then(res => handleResponse<PlayerStats>(res)),
     getStatsSeasons: (id: number, surface: Surface = "ALL"): Promise<number[]> =>
-      fetch(`${API_BASE_URL}/players/${id}/stats/seasons?surface=${surface}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/stats/seasons?surface=${surface}`).then(res => handleResponse<number[]>(res)),
     getEloHistory: (id: number, surface: Surface = "ALL"): Promise<EloHistoryEntry[]> =>
-      fetch(`${API_BASE_URL}/players/${id}/elo/history?surface=${surface}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/elo/history?surface=${surface}`).then(res => handleResponse<EloHistoryEntry[]>(res)),
     getMatches: (id: number, limit = 20, offset = 0): Promise<Match[]> =>
-      fetch(`${API_BASE_URL}/players/${id}/matches?limit=${limit}&offset=${offset}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/players/${id}/matches?limit=${limit}&offset=${offset}`).then(res => handleResponse<Match[]>(res)),
   },
   matchups: {
     getDetailed: (p1: number, p2: number, surface: Surface = "ALL"): Promise<MatchupDetail> =>
-      fetch(`${API_BASE_URL}/matchups/detailed?player_id=${p1}&opponent_id=${p2}&surface=${surface}`).then(handleResponse),
+      fetch(`${API_BASE_URL}/matchups/detailed?player_id=${p1}&opponent_id=${p2}&surface=${surface}`).then(res => handleResponse<MatchupDetail>(res)),
   }
 }
