@@ -1,4 +1,4 @@
-import { EloHistoryEntry, EloRankingEntry, EloResponse, Match, Player, PlayerForm, PlayerStats, Surface } from "@/types/api"
+import { EloHistoryEntry, EloRankingEntry, EloResponse, Match, Player, PlayerForm, PlayerStats, Surface, MatchupDetail } from "@/types/api"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
@@ -34,7 +34,7 @@ export const api = {
       fetch(`${API_BASE_URL}/players/${id}/matches?limit=${limit}&offset=${offset}`).then(handleResponse),
   },
   matchups: {
-    getDetailed: (p1: number, p2: number, surface: Surface = "ALL") =>
+    getDetailed: (p1: number, p2: number, surface: Surface = "ALL"): Promise<MatchupDetail> =>
       fetch(`${API_BASE_URL}/matchups/detailed?player_id=${p1}&opponent_id=${p2}&surface=${surface}`).then(handleResponse),
   }
 }

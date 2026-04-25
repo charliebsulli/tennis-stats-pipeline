@@ -3,8 +3,8 @@ export type Surface = "ALL" | "Hard" | "Clay" | "Grass"
 export interface Player {
   player_id: number
   name: string
-  nationality: string | null
-  hand: string | null
+  nationality: string
+  hand: string
 }
 
 export interface EloRankingEntry {
@@ -71,7 +71,7 @@ export interface PlayerStats {
 
 export interface Match {
   match_id: number
-  tournament_id: number
+  tournament_id: string
   tournament_name: string
   match_date: string
   surface: Surface
@@ -81,4 +81,43 @@ export interface Match {
   loser_id: number
   loser_name: string
   score: string
+}
+
+export interface HeadToHead {
+  player_id: number
+  opponent_id: number
+  surface: Surface
+  wins: number
+  losses: number
+  matches_played: number
+}
+
+export interface MatchupPrediction {
+  player_id: number
+  opponent_id: number
+  surface: Surface
+  player_elo: number | null
+  opponent_elo: number | null
+  prediction: number | null
+}
+
+export interface MatchupPlayerDetail {
+  player_id: number
+  name: string
+  nationality: string
+  hand: string
+  elo: number | null
+  rank: number | null
+  form: PlayerForm
+  season_record: WinLossRecord
+  career_record: WinLossRecord
+}
+
+export interface MatchupDetail {
+  player: MatchupPlayerDetail
+  opponent: MatchupPlayerDetail
+  h2h: HeadToHead
+  prediction: MatchupPrediction
+  match_history: Match[]
+  surface: Surface
 }

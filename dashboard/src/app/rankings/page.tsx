@@ -49,7 +49,7 @@ export default function RankingsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Elo Rankings</h1>
           <p className="text-muted-foreground mt-2">
-            Current performance-based rankings for ATP players.
+            Players active within the last year ranked by Elo rating on each surface. Rankings are updated daily.
           </p>
         </div>
 
