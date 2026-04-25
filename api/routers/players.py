@@ -1,11 +1,20 @@
 from typing import List
 
-from api.db import get_conn
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from api.models.responses import (EloHistoryEntry, EloResponse, MatchResponse,
-                              Player, PlayerFormResponse, PlayerStatsResponse,
-                              ReturnStats, ServeStats, Surface)
 from sqlalchemy import text
+
+from api.db import get_conn
+from api.models.responses import (
+    EloHistoryEntry,
+    EloResponse,
+    MatchResponse,
+    Player,
+    PlayerFormResponse,
+    PlayerStatsResponse,
+    ReturnStats,
+    ServeStats,
+    Surface,
+)
 
 router = APIRouter(prefix="/players", tags=["players"])
 
@@ -138,6 +147,27 @@ async def get_player_stats(
         serve=ServeStats.model_validate(row),
         return_=ReturnStats.model_validate(row),
     )
+
+
+@router.get("/{player_id}/stats/seasons")
+async def get_player_stats_seasons(
+    player_id: int = Path(ge=1, le=2_147_483_647),
+    surface: Surface = Surface.all,
+    conn=Depends(get_conn),
+) -> List[int]:
+    """Get a list of seasons for which we have stats for a given player and surface."""
+    rows = conn.execute(
+        text("""
+        SELECT DISTINCT season
+        FROM player_surface_stats
+        WHERE player_id = :player_id
+        AND surface = :surface
+        ORDER BY season DESC
+        """),
+        {"player_id": player_id, "surface": surface.value},
+    ).fetchall()
+
+    return [row.season for row in rows]
 
 
 @router.get("/{player_id}/elo")
@@ -274,6 +304,7 @@ async def get_player_matches(
     player_id: int = Path(ge=1, le=2_147_483_647),
     surface: Surface = Surface.all,
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     conn=Depends(get_conn),
 ) -> List[MatchResponse]:
     """Retrieve a list of recent matches for a specific player."""
@@ -296,13 +327,13 @@ async def get_player_matches(
         JOIN players AS pl ON m.loser_id = pl.player_id
         WHERE (m.winner_id = :player_id OR m.loser_id = :player_id)
     """
-    params = {"player_id": player_id, "limit": limit}
+    params = {"player_id": player_id, "limit": limit, "offset": offset}
 
     if surface != Surface.all:
         query += " AND t.surface = :surface"
         params["surface"] = surface.value
 
-    query += " ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit"
+    query += " ORDER BY m.match_date DESC, m.round_int DESC LIMIT :limit OFFSET :offset"
 
     rows = conn.execute(text(query), params).fetchall()
 
