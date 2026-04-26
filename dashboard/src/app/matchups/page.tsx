@@ -1,17 +1,17 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { api } from "@/lib/api"
-import { Player, Surface, MatchupDetail, Match } from "@/types/api"
 import { PlayerSearch } from "@/components/player-search"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { api } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { Match, MatchupDetail, Player, Surface } from "@/types/api"
+import { useQuery } from "@tanstack/react-query"
+import { BarChart3, History, Trophy, User } from "lucide-react"
 import Link from "next/link"
-import { User, Trophy, BarChart3, History, Target } from "lucide-react"
+import { useState } from "react"
 
 export default function MatchupsPage() {
   const [player1, setPlayer1] = useState<Player | null>(null)
@@ -195,8 +195,7 @@ function H2HOverview({ matchup }: { matchup: MatchupDetail }) {
                 />
               </div>
               <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Target className="h-3 w-3" />
-                <span>Win probability based on {matchup.surface} Elo ratings</span>
+                <span>Win probability based on {matchup.surface === "ALL" ? "overall" : matchup.surface} Elo ratings</span>
               </div>
             </div>
           </div>
@@ -209,10 +208,19 @@ function H2HOverview({ matchup }: { matchup: MatchupDetail }) {
 function H2HStatsComparison({ matchup }: { matchup: MatchupDetail }) {
   const { player, opponent } = matchup
 
+  const elo_label = matchup.surface === "ALL" ? "Elo Rating" : `${matchup.surface} Elo Rating`
+  const elo_rank_label = matchup.surface === "ALL" ? "Elo Rank" : `${matchup.surface} Elo Rank`
+  const form_label = matchup.surface === "ALL" ? "Recent Form" : `${matchup.surface} Form`
+
   const rows = [
-    { label: "Elo Rating", p1: player.elo?.toFixed(0), p2: opponent.elo?.toFixed(0), better: "high" },
-    { label: "World Rank", p1: player.rank, p2: opponent.rank, better: "low" },
-    { label: "Recent Form", p1: player.form.weighted_form?.toFixed(1), p2: opponent.form.weighted_form?.toFixed(1), better: "high" },
+    { label: elo_label, p1: player.elo?.toFixed(0), p2: opponent.elo?.toFixed(0), better: "high" },
+    { label: elo_rank_label, p1: player.rank, p2: opponent.rank, better: "low" },
+    { 
+      label: form_label, 
+      p1: player.form.weighted_form != null ? Math.round(player.form.weighted_form * 100) : "N/A", 
+      p2: opponent.form.weighted_form != null ? Math.round(opponent.form.weighted_form * 100) : "N/A", 
+      better: "high" 
+    },
     { label: "Season Wins", p1: player.season_record.won, p2: opponent.season_record.won, better: "high" },
     { label: "Season Win %", p1: (player.season_record.win_pct * 100).toFixed(1) + "%", p2: (opponent.season_record.win_pct * 100).toFixed(1) + "%", better: "high" },
     { label: "Career Wins", p1: player.career_record.won, p2: opponent.career_record.won, better: "high" },
@@ -223,12 +231,12 @@ function H2HStatsComparison({ matchup }: { matchup: MatchupDetail }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-lg flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
-          Comparison
+          <BarChart3 className="h-5 w-5 text-primary" />
+          {matchup.surface !== "ALL" ? matchup.surface : ""} Comparison
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="space-y-4">
+        <div className="space-y-1">
           {rows.map((row, i) => {
             const p1Val = parseFloat(row.p1 as string) || 0
             const p2Val = parseFloat(row.p2 as string) || 0
@@ -236,19 +244,19 @@ function H2HStatsComparison({ matchup }: { matchup: MatchupDetail }) {
             const p2Better = row.better === "high" ? p2Val > p1Val : p2Val < p1Val && p2Val !== 0
 
             return (
-              <div key={i} className="flex items-center gap-4">
+              <div key={i} className="flex items-center gap-4 py-3 border-b last:border-0 border-muted/50 transition-colors hover:bg-muted/10 px-2 rounded-md">
                 <div className={cn(
-                  "flex-1 text-right font-bold text-lg",
-                  p1Better && "text-primary"
+                  "flex-1 text-right text-lg tabular-nums transition-colors",
+                  p1Better ? "font-bold text-primary" : "font-semibold text-foreground/70"
                 )}>
                   {row.p1 || "—"}
                 </div>
-                <div className="w-32 text-center text-xs text-muted-foreground uppercase font-semibold tracking-wider">
+                <div className="w-32 text-center text-xs text-muted-foreground uppercase font-bold tracking-wider">
                   {row.label}
                 </div>
                 <div className={cn(
-                  "flex-1 text-left font-bold text-lg",
-                  p2Better && "text-primary"
+                  "flex-1 text-left text-lg tabular-nums transition-colors",
+                  p2Better ? "font-bold text-primary" : "font-semibold text-foreground/70"
                 )}>
                   {row.p2 || "—"}
                 </div>

@@ -20,7 +20,7 @@ export function Navbar() {
         <div className="mr-4 flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
             <span className="font-bold text-blue-600 sm:inline-block">
-              TennisH2H
+              ATP Stats
             </span>
           </Link>
         </div>

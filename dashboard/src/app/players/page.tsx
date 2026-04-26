@@ -1,4 +1,4 @@
-import { PlayerSearch } from "@/components/player-search"
+import { PlayerSearch } from "@/components/player-search";
 
 export default function Players() {
   return (
@@ -6,7 +6,7 @@ export default function Players() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Players</h1>
         <p className="text-muted-foreground mt-2">
-          Search for players and view their detailed performance analytics.
+          Search for players and view their profile with stats and recent results.
         </p>
       </div>
 

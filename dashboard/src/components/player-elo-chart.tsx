@@ -108,8 +108,8 @@ export function PlayerEloChart({ playerId }: PlayerEloChartProps) {
             No history data available for this period.
           </div>
         ) : (
-          <div className="h-[300px] w-full pt-4">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full pt-4">
+            <ResponsiveContainer width="100%" height={300}>
               <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis 
