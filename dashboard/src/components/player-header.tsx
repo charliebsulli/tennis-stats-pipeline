@@ -69,7 +69,9 @@ export function PlayerHeader({
             <>
               <div className="rounded-lg bg-muted p-3 text-center">
                 <p className="text-2xl font-medium">
-                  {Math.round((form?.weighted_form ?? 0) * 100)}
+                  {form?.weighted_form != null 
+                    ? Math.round(form.weighted_form * 100) 
+                    : "N/A"}
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">Form (90d)</p>
               </div>
