@@ -207,7 +207,7 @@ def get_new_api_players(conn):
                         winner_ioc as nationality,
                         winner_hand as hand
                     from new_api_matches
-                    intersect
+                    union
                     select
                         rapidapi_loser_id as api_player_id,
                         loser_name as name,
