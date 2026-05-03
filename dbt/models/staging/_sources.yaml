@@ -9,3 +9,6 @@ sources:
             warn_after:
               count: 24
               period: hour
+            error_after:
+              count: 48
+              period: hour

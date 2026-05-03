@@ -149,3 +149,33 @@ def get_player_id_lookup_dict(conn):
 def get_normalized_player_name_dict(conn):
     rows = conn.execute(text("SELECT player_id, name FROM players")).fetchall()
     return {normalize_name(row.name): row.player_id for row in rows}
+
+
+def seed_players(conn):
+    """
+    One time function which seeds the players table from using
+    data from the CSV files which has been loaded into the
+    raw_matches table
+    """
+
+    result = conn.execute(
+        text("""insert into players (player_id, name, nationality, hand)
+                                    select
+                                    winner_id as player_id,
+                                    winner_name as name,
+                                    winner_ioc as nationality,
+                                    winner_hand as hand
+                                    from raw_matches
+                                    where source = 'sackmann'
+                                    intersect
+                                    select
+                                    loser_id as player_id,
+                                    loser_name as name,
+                                    loser_ioc as nationality,
+                                    loser_hand as hand
+                                    from raw_matches
+                                    where source = 'sackmann'
+                                    returning 1;""")
+    )
+    conn.commit()
+    logger.info(f"Inserted {result.rowcount} players from sackmann data")
