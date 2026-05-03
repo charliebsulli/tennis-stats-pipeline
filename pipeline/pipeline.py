@@ -6,8 +6,10 @@ from pipeline.aggregate.elo import update_elo
 from pipeline.aggregate.form import compute_form
 from pipeline.aggregate.head_to_head import compute_head_to_head
 from pipeline.aggregate.surface_stats import compute_surface_stats
+from pipeline.db.db_connection import engine
 from pipeline.ingestion.ingest import ingest_daily
 from pipeline.logging_config import setup_logging
+from pipeline.transform.player_id_helper import insert_new_api_players
 from pipeline.transform.transform import transform_raw_matches
 
 logger = logging.getLogger(__name__)
@@ -16,11 +18,13 @@ logger = logging.getLogger(__name__)
 def run_pipeline(run_date):
     logger.info("Starting pipeline run")
     ingest_daily(run_date)
-    transform_raw_matches()
-    compute_surface_stats()
-    compute_head_to_head()
-    compute_form()
-    update_elo()
+    with engine.connect() as conn:
+        insert_new_api_players(conn)
+    # transform_raw_matches()
+    # compute_surface_stats()
+    # compute_head_to_head()
+    # compute_form()
+    # update_elo()
     logger.info("Pipeline complete")
 
 

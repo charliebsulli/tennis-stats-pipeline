@@ -160,22 +160,112 @@ def seed_players(conn):
 
     result = conn.execute(
         text("""insert into players (player_id, name, nationality, hand)
-                                    select
-                                    winner_id as player_id,
-                                    winner_name as name,
-                                    winner_ioc as nationality,
-                                    winner_hand as hand
-                                    from raw_matches
-                                    where source = 'sackmann'
-                                    intersect
-                                    select
-                                    loser_id as player_id,
-                                    loser_name as name,
-                                    loser_ioc as nationality,
-                                    loser_hand as hand
-                                    from raw_matches
-                                    where source = 'sackmann'
-                                    returning 1;""")
+                    select
+                    winner_id as player_id,
+                    winner_name as name,
+                    winner_ioc as nationality,
+                    winner_hand as hand
+                    from raw_matches
+                    where source = 'sackmann'
+                    intersect
+                    select
+                    loser_id as player_id,
+                    loser_name as name,
+                    loser_ioc as nationality,
+                    loser_hand as hand
+                    from raw_matches
+                    where source = 'sackmann'
+                    returning 1;""")
     )
     conn.commit()
     logger.info(f"Inserted {result.rowcount} players from sackmann data")
+
+
+def get_new_api_players(conn):
+    result = conn.execute(
+        text("""with new_api_matches as (
+                    select
+                        rapidapi_winner_id,
+                        winner_name,
+                        winner_ioc,
+                        winner_hand,
+                        rapidapi_loser_id,
+                        loser_name,
+                        loser_ioc,
+                        loser_hand
+                    from raw_matches
+                    where source = 'rapidapi'
+                    and not exists (
+                        select 1 from matches where matches.match_id = raw_matches.match_id
+                    )
+                ),
+
+                new_api_players as (
+                    select
+                        rapidapi_winner_id as api_player_id,
+                        winner_name as name,
+                        winner_ioc as nationality,
+                        winner_hand as hand
+                    from new_api_matches
+                    intersect
+                    select
+                        rapidapi_loser_id as api_player_id,
+                        loser_name as name,
+                        loser_ioc as nationality,
+                        loser_hand as hand
+                    from new_api_matches
+                )
+
+                select p.*
+                from new_api_players p
+                left join player_id_lookup pl on pl.api_player_id = p.api_player_id
+                where pl.player_id is null""")
+    ).fetchall()
+    return result
+
+
+def insert_new_api_players(conn):
+    """
+    Gets all unseen players from new raw_matches, tries to fuzzy match against existing players, and inserts any new ones into the players table.
+    """
+    new_players = get_new_api_players(conn)
+
+    if len(new_players) == 0:
+        logger.info("No new players to insert")
+        return
+
+    normalized_player_names = get_normalized_player_name_dict(conn)
+
+    new_lookup_entries = []
+    new_players_to_insert = {}
+
+    for row in new_players:
+        # try fuzzy match against known players
+        match, confidence, _ = process.extractOne(
+            normalize_name(row.name),
+            normalized_player_names.keys(),
+            scorer=fuzz.token_sort_ratio,
+        )
+
+        if confidence >= 90:
+            player_id = normalized_player_names[match]
+            new_lookup_entries.append(
+                {
+                    "player_id": player_id,
+                    "api_player_id": row.api_player_id,
+                    "api_name": row.name,
+                    "match_type": "fuzzy",
+                    "confidence": confidence,
+                }
+            )
+
+        else:
+            new_players_to_insert[row.api_player_id] = {
+                "name": row.name,
+                "nationality": row.nationality,
+                "hand": row.hand,
+            }
+
+    insert_fuzzy_matches_into_lookup(new_lookup_entries, conn)
+    insert_new_api_players_and_lookup(conn, new_players_to_insert)
+    conn.commit()
