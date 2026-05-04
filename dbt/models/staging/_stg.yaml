@@ -5,7 +5,23 @@ models:
         tests:
           - unique
           - not_null
-
+      - name: winner_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: loser_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: match_date
+        tests:
+          - not_null
       - name: surface
         tests:
           - not_null

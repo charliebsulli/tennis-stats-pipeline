@@ -1,9 +1,71 @@
 models:
   - name: matches
     columns:
+      - name: match_id
+        tests:
+          - unique
+          - not_null
       - name: tournament_id
         tests:
+          - not_null
           - relationships:
               arguments:
                 to: ref('tournaments')
                 field: tournament_id
+      - name: match_date
+        tests:
+          - not_null
+      - name: winner_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: loser_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+
+  - name: match_stats
+    columns:
+      - name: match_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('matches')
+                field: match_id
+      - name: player_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: opponent_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+
+  - name: tournaments
+    columns:
+      - name: tournament_id
+        tests:
+          - unique
+          - not_null
+      - name: name
+        tests:
+          - not_null
+      - name: surface
+        tests:
+          - not_null
+      - name: tournament_level
+        tests:
+          - not_null

@@ -17,3 +17,27 @@ sources:
             error_after:
               count: 48
               period: hour
+      - name: players
+        columns:
+          - name: player_id
+            tests:
+              - unique
+              - not_null
+          - name: name
+            tests:
+              - not_null
+      - name: player_id_lookup
+        columns:
+          - name: player_id
+            tests:
+              - not_null
+              - relationships:
+                  arguments:
+                    to: source('raw', 'players')
+                    field: player_id
+          - name: api_player_id
+            tests:
+              - not_null
+          - name: api_name
+            tests:
+              - not_null

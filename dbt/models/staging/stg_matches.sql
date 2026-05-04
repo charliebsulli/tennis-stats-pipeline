@@ -68,8 +68,8 @@ select
   r.rapidapi_winner_id,
   r.rapidapi_loser_id
 from {{ source('raw', 'raw_matches') }} as r
-left join player_id_lookup as wl on r.rapidapi_winner_id = wl.api_player_id
-left join player_id_lookup as ll on r.rapidapi_loser_id = ll.api_player_id
+left join {{ source('raw', 'player_id_lookup') }} as wl on r.rapidapi_winner_id = wl.api_player_id
+left join {{ source('raw', 'player_id_lookup') }} as ll on r.rapidapi_loser_id = ll.api_player_id
 
 {% if is_incremental() %}
   where r.match_id not in (select match_id from {{ this }})
