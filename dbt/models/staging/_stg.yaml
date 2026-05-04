@@ -5,6 +5,13 @@ models:
         tests:
           - unique
           - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'raw_matches')
+                field: match_id
+      - name: tourney_id
+        tests:
+          - not_null
       - name: winner_id
         tests:
           - not_null

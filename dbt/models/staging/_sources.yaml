@@ -8,6 +8,60 @@ sources:
             tests:
               - unique
               - not_null
+          - name: time_added
+            tests:
+              - not_null
+          - name: source
+            tests:
+              - not_null
+              - accepted_values:
+                  arguments:
+                    values: ['sackmann', 'rapidapi']
+          - name: winner_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'sackmann'"
+          - name: loser_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'sackmann'"
+          - name: tourney_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'sackmann'"
+          - name: tourney_date
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'sackmann'"
+          - name: rapidapi_match_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'rapidapi'"
+          - name: rapidapi_winner_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'rapidapi'"
+          - name: rapidapi_loser_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'rapidapi'"
+          - name: rapidapi_tournament_id
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'rapidapi'"
+          - name: match_date
+            tests:
+              - not_null:
+                  config:
+                    where: "source = 'rapidapi'"
         config:
           loaded_at_field: time_added
           freshness:

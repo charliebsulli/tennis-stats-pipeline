@@ -5,6 +5,10 @@ models:
         tests:
           - unique
           - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_matches')
+                field: match_id
       - name: tournament_id
         tests:
           - not_null
@@ -13,6 +17,9 @@ models:
                 to: ref('tournaments')
                 field: tournament_id
       - name: match_date
+        tests:
+          - not_null
+      - name: round
         tests:
           - not_null
       - name: winner_id
@@ -53,6 +60,12 @@ models:
               arguments:
                 to: source('raw', 'players')
                 field: player_id
+      - name: won
+        tests:
+          - not_null
+      - name: complete_stats
+        tests:
+          - not_null
 
   - name: tournaments
     columns:
@@ -66,6 +79,9 @@ models:
       - name: surface
         tests:
           - not_null
+          - accepted_values:
+              arguments:
+                values: ['Hard', 'Clay', 'Grass', 'Carpet', 'Unknown']
       - name: tournament_level
         tests:
           - not_null
