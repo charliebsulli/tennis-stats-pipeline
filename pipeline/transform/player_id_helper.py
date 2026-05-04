@@ -167,7 +167,7 @@ def seed_players(conn):
                     winner_hand as hand
                     from raw_matches
                     where source = 'sackmann'
-                    intersect
+                    union
                     select
                     loser_id as player_id,
                     loser_name as name,
