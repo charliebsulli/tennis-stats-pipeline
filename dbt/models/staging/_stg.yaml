@@ -1,0 +1,14 @@
+models:
+  - name: stg_matches
+    columns:
+      - name: match_id
+        tests:
+          - unique
+          - not_null
+
+      - name: surface
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Hard', 'Clay', 'Grass', 'Carpet', 'Unknown']

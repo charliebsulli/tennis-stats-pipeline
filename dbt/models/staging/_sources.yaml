@@ -3,6 +3,11 @@ sources:
     schema: public
     tables:
       - name: raw_matches
+        columns:
+          - name: match_id
+            tests:
+              - unique
+              - not_null
         config:
           loaded_at_field: time_added
           freshness:

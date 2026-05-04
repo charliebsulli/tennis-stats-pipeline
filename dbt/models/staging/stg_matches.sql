@@ -12,6 +12,8 @@ select
     when r.surface = 'Hardcourt indoor' then 'Hard'
     when r.surface = 'Hardcourt outdoor' then 'Hard'
     when r.surface = 'Red clay' then 'Clay'
+    when r.surface = 'Red clay indoor' then 'Clay'
+    when r.surface is null then 'Unknown'
     else r.surface
   end as surface,
   r.time_added,

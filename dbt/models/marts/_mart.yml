@@ -1,0 +1,9 @@
+models:
+  - name: matches
+    columns:
+      - name: tournament_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('tournaments')
+                field: tournament_id
