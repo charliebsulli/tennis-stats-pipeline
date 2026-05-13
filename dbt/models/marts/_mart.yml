@@ -85,3 +85,76 @@ models:
       - name: tournament_level
         tests:
           - not_null
+
+  - name: form
+    columns:
+      - name: player_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: surface
+        tests:
+          - not_null
+      - name: weighted_form
+        tests:
+          - not_null
+
+  - name: head_to_head
+    columns:
+      - name: player_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: opponent_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: surface
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Hard', 'Clay', 'Grass', 'ALL']
+      - name: wins
+        tests:
+          - not_null
+      - name: losses
+        tests:
+          - not_null
+      - name: matches_played
+        tests:
+          - not_null
+
+  - name: player_surface_stats
+    columns:
+      - name: player_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: source('raw', 'players')
+                field: player_id
+      - name: surface
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['Hard', 'Clay', 'Grass', 'ALL']
+      - name: season
+        tests:
+          - not_null
+      - name: matches_played
+        tests:
+          - not_null
+      - name: won
+        tests:
+          - not_null

@@ -135,7 +135,6 @@ select
     return_games,
     break_points_converted,
     break_points_chances,
-    -- Derived stats
     service_points - first_serves_in as second_serve_points,
     (service_games - (break_points_faced - break_points_saved)) as service_games_won,
     return_points - first_serve_return_points as second_serve_return_points
