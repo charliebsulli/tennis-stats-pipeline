@@ -47,27 +47,40 @@ def ingest_by_date(category, date):
         logger.info(f"Inserted {rows} matches for date {date} and category {category}")
 
 
-def insert_or_ignore(table, conn, keys, data_iter):
-    raw_conn = conn.connection
-    rows = list(data_iter)
+def make_insert_or_ignore(conflict_column):
+    """
+    Build a to_sql method that ignores conflicts on one provider id column.
 
-    if not rows:
-        return 0
-
-    columns = ", ".join(keys)
-
-    query = f"""
-        INSERT INTO {table.name} ({columns})
-        VALUES %s
-        ON CONFLICT (rapidapi_match_id) DO NOTHING
-        RETURNING 1
+    Each source dedupes on its own id column, so the conflict target has to
+    follow the source rather than being fixed to rapidapi_match_id.
     """
 
-    with raw_conn.cursor() as cur:
-        execute_values(cur, query, rows)
-        inserted = cur.fetchall()
+    def method(table, conn, keys, data_iter):
+        raw_conn = conn.connection
+        rows = list(data_iter)
 
-    return len(inserted)
+        if not rows:
+            return 0
+
+        columns = ", ".join(keys)
+
+        query = f"""
+            INSERT INTO {table.name} ({columns})
+            VALUES %s
+            ON CONFLICT ({conflict_column}) DO NOTHING
+            RETURNING 1
+        """
+
+        with raw_conn.cursor() as cur:
+            execute_values(cur, query, rows)
+            inserted = cur.fetchall()
+
+        return len(inserted)
+
+    return method
+
+
+insert_or_ignore = make_insert_or_ignore("rapidapi_match_id")
 
 
 def query_by_date(category, date: date) -> pd.DataFrame:

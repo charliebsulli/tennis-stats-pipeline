@@ -7,6 +7,7 @@ from pipeline.aggregate.form import compute_form
 from pipeline.aggregate.head_to_head import compute_head_to_head
 from pipeline.aggregate.surface_stats import compute_surface_stats
 from pipeline.ingestion.ingest import ingest_daily
+from pipeline.ingestion.livetennisapi_ingest import ingest_history
 from pipeline.logging_config import setup_logging
 from pipeline.transform.transform import transform_raw_matches
 
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 def run_pipeline(run_date):
     logger.info("Starting pipeline run")
     ingest_daily(run_date)
+    # Optional second source; a no-op unless LIVETENNISAPI_KEY is set.
+    ingest_history(run_date, run_date)
     transform_raw_matches()
     compute_surface_stats()
     compute_head_to_head()
