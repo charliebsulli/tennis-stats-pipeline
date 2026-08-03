@@ -186,3 +186,27 @@ Historical match data from [Jeff Sackmann's tennis_atp dataset](https://github.c
 
 Live match data from [RapidAPI Tennis API](https://rapidapi.com/fluis.lacasse/api/tennisapi1).
 
+Optionally, completed matches can also be ingested from [Live Tennis API](https://livetennisapi.com)
+as a second source, so the daily ingest is not dependent on a single provider.
+It is off unless `LIVETENNISAPI_KEY` is set, and it does not replace anything.
+
+Its completed-match history runs from January 2023, but it is still a parallel
+feed for new matches rather than a way to backfill the archive, and the
+1968-2024 history still comes from Sackmann. Two reasons. The rows this feed
+returns carry no serve/return statistics, while the Sackmann CSVs already cover
+1968-2024 with the full `w_ace`-`l_bpFaced` block, so re-importing that range
+would trade columns away for nothing. And `raw_matches` has no natural key —
+only the surrogate `match_id` and the per-provider `rapidapi_match_id` unique —
+so a second copy of an already-loaded match would be counted twice by Elo,
+head-to-head and form.
+
+Its matches carry the result, surface, round, best-of and both rankings, but no
+serve/return statistics, so those rows land with `complete_stats = false` and
+are excluded from the serve/return aggregations while still counting toward
+Elo, head-to-head and form.
+
+An existing database needs `pipeline/migrations/001_add_livetennisapi_source.sql`
+applied once before enabling it. Ingestion skips any match another source has
+already recorded for the same date and players, so enabling it does not double
+count.
+

@@ -58,6 +58,10 @@ CREATE TABLE raw_matches (
     rapidapi_tournament_id INTEGER,
     rapidapi_winner_id INTEGER,
     rapidapi_loser_id INTEGER,
+    -- live tennis api (optional source), kept in its own id namespace
+    ltapi_match_id INTEGER UNIQUE,
+    ltapi_winner_id INTEGER,
+    ltapi_loser_id INTEGER,
     -- sackmann only has tournament date, match_date is a timestamp of match start time
     match_date DATE
 );
@@ -126,11 +130,14 @@ CREATE TABLE match_stats (
 CREATE TABLE player_id_lookup (
     player_id INTEGER REFERENCES players(player_id),
     api_player_id INTEGER NOT NULL,
+    -- which API api_player_id belongs to; two providers can hand out the same
+    -- integer for different people, so the id is only meaningful with its source
+    source TEXT NOT NULL DEFAULT 'rapidapi',
     api_name TEXT NOT NULL,
     match_type TEXT NOT NULL,
     confidence REAL,
 
-    PRIMARY KEY (player_id, api_player_id)
+    PRIMARY KEY (player_id, api_player_id, source)
 );
 
 -- ====================

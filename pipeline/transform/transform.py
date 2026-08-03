@@ -1,6 +1,7 @@
 import logging
 
 import pandas as pd
+from pipeline.constants import API_SOURCES
 from pipeline.db.db_connection import engine
 from sqlalchemy import text
 from pipeline.transform.normalize import ROUND_ORDER, SURFACE_MAPPING
@@ -30,6 +31,8 @@ def transform_raw_matches(sackmann_only: bool = False):
         logger.info("No new matches found for transform.py")
         return
 
+    api_batches = {}
+
     if sackmann_only:
         df = df[df["source"] == "sackmann"]
     else:
@@ -41,8 +44,18 @@ def transform_raw_matches(sackmann_only: bool = False):
         df.loc[mask, "surface"] = df.loc[mask, "surface"].map(map_surface_names)
         df.loc[mask, "tourney_date"] = df.loc[mask, "match_date"]
 
+        # Each API source resolves player ids against its own crosswalk, so
+        # ids from different providers can never be mistaken for each other.
         with engine.connect() as conn:
-            df, new_crosswalk_entries = resolve_player_ids(df, mask, conn)
+            for source, columns in API_SOURCES.items():
+                source_mask = df["source"] == source
+                if not source_mask.any():
+                    continue
+
+                df, entries = resolve_player_ids(
+                    df, source_mask, conn, source=source, **columns
+                )
+                api_batches[source] = (source_mask, entries)
 
     # in some entries in the CSV data, the winner and loser is the same
     len_before_drop = len(df)
@@ -60,11 +73,17 @@ def transform_raw_matches(sackmann_only: bool = False):
         new_tournaments.to_sql("tournaments", conn, if_exists="append", index=False)
 
         if not sackmann_only:
-            pending = collect_pending_new_api_players(df, mask)
-            if pending:
-                api_to_pid = insert_new_api_players_and_lookup(conn, pending)
-                fill_unresolved_api_player_ids(df, mask, api_to_pid)
-            insert_fuzzy_matches_into_lookup(new_crosswalk_entries, conn)
+            for source, (source_mask, entries) in api_batches.items():
+                columns = API_SOURCES[source]
+                pending = collect_pending_new_api_players(df, source_mask, **columns)
+                if pending:
+                    api_to_pid = insert_new_api_players_and_lookup(
+                        conn, pending, source=source
+                    )
+                    fill_unresolved_api_player_ids(
+                        df, source_mask, api_to_pid, **columns
+                    )
+                insert_fuzzy_matches_into_lookup(entries, conn)
         else:
             new_players = transform_players(df, conn)
             new_players.to_sql("players", conn, if_exists="append", index=False)
